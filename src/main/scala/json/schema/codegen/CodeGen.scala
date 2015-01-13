@@ -27,7 +27,7 @@ trait CodeGen extends Naming {
 
   import CodeGen._
 
-  val additionalPropertiesMember = "_additional"
+  val addPropName = "_additional"
 
   def generateFile(scope: URI, fileName: String, outputDir: Path)(content: String => Validation[String, String]): Validation[String, Seq[Path]] = {
 
@@ -96,16 +96,35 @@ trait CodeGen extends Naming {
   def genCodec(c: ScalaClass): String = {
     val propNames = c.properties.map(p => '"' + p.name + '"').mkString(", ")
     val className = c.identifier
-    c.additionalNested.fold(
-      s"""
+    c.additionalNested match {
+      case None =>
+        s"""
        |  implicit def ${className}Codec: CodecJson[$className]=casecodec${c.properties.length}($className.apply, $className.unapply)($propNames)
      """.stripMargin
-    )(
-        additionalType =>
-          s"""
-           |  implicit def ${className}Codec: CodecJson[$className]=CodecJson(MapEncodeJson[$className], MapDecodeJson[$className])
-         """.stripMargin
-      )
+      case Some(additionalType) =>
+        val addClassName = additionalType.identifier
+        val addPropNames = propNames + (propNames.isEmpty ? "" | ", ") + '"' + addPropName + '"'
+        s"""
+       |    private def ${className}SimpleCodec: CodecJson[$className] = casecodec${c.properties.length + 1}($className.apply, $className.unapply)($addPropNames)
+       |
+       |    implicit def ${className}Codec: CodecJson[$className] = CodecJson.derived(EncodeJson {
+       |      v =>
+       |        val j = ${className}SimpleCodec.encode(v)
+       |        val nj = j.field("$addPropName").fold(j)(a => j.deepmerge(a))
+       |        nj.hcursor.downField("$addPropName").deleteGoParent.focus.getOrElse(nj)
+       |    }, DecodeJson {
+       |      c =>
+       |        val md: DecodeJson[Option[Map[String, $addClassName]]] = implicitly
+       |        val od: DecodeJson[$className] = ${className}SimpleCodec
+       |        for {
+       |          o <- od.decode(c)
+       |          withoutProps = List($propNames).foldLeft(c)((c, f) => c.downField(f).deleteGoParent.hcursor.getOrElse(c))
+       |          m <- md.decode(withoutProps)
+       |        } yield o.copy($addPropName = m)
+       |    })
+       |
+       """.stripMargin
+    }
   }
 
   def genPackageName(scope: URI) = {
@@ -133,11 +152,13 @@ trait CodeGen extends Naming {
           val member = underscoreToCamel(identifier(p.name))
           s"$member:$propType"
       }
-      val extra = t.additionalNested.map {
-        tn =>
-          val propType = genPropertyType(tn)
-          s"$additionalPropertiesMember:Map[String, $propType]"
-      }
+      val extra =
+        t.additionalNested.map {
+          tn =>
+            val propType = genPropertyType(tn)
+            // nested type is option , so that the special codec works even when no props are given
+            s"$addPropName:Option[Map[String, $propType]]"
+        }
       val members = (properties ++ extra.toList).mkString(", ")
       s"""case class ${t.identifier}($members)""".stripMargin
 
@@ -172,15 +193,17 @@ trait CodeGen extends Naming {
   def error(s: => String) = System.err.println(s)
 
   private implicit class Printable[T](v: T) {
-    def info(prefix: String = ""): T = {
+    def withInfo(prefix: String = ""): T = {
       info(s"$prefix : $v")
       v
     }
-    def error(prefix: String = ""): T = {
+
+    def withError(prefix: String = ""): T = {
       error(s"$prefix : $v")
       v
     }
-    def debug(prefix: String = ""): T = {
+
+    def withDebug(prefix: String = ""): T = {
       debug(s"$prefix : $v")
       v
     }
@@ -189,11 +212,11 @@ trait CodeGen extends Naming {
   def gen[N: Numeric, T: JsonSource](jsonParser: JsonSchemaParser[N], source: T)(codeGenTarget: Path) = {
 
     for {
-      schema: SchemaDocument[N] <- jsonParser.parse(source).validation.debug("parsed schema")
-      models: Set[ScalaType] <- ScalaModelGenerator(schema).debug("generated object model")
-      modelFiles: Seq[Path] <- generateModel(models, schema.scope, codeGenTarget).debug("model files")
-      codecFiles: Seq[Path] <- generateCodec(models, schema.scope, codeGenTarget).debug("serializatoin files")
-    } yield (modelFiles ++ codecFiles).info("generated files")
+      schema: SchemaDocument[N] <- jsonParser.parse(source).validation.withDebug("parsed schema")
+      models: Set[ScalaType] <- ScalaModelGenerator(schema).withDebug("generated object model")
+      modelFiles: Seq[Path] <- generateModel(models, schema.scope, codeGenTarget).withDebug("model files")
+      codecFiles: Seq[Path] <- generateCodec(models, schema.scope, codeGenTarget).withDebug("serializatoin files")
+    } yield (modelFiles ++ codecFiles).withInfo("generated files")
 
   }
 

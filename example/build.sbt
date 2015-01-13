@@ -2,10 +2,9 @@ import json.schema.codegen.Plugin
 
 name := "json-schema-codegen-example"
 
-enablePlugins(Plugin)
-
 Plugin.projectSettings
 
 libraryDependencies ++= Seq(
-  "io.argonaut" %% "argonaut" % "6.0.4"
+  "io.argonaut" %% "argonaut" % "6.0.4",
+  "org.scalatest" % "scalatest_2.10" % "2.2.1" % "test"
 )
