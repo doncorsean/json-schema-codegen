@@ -3,16 +3,26 @@ package json.schema.codegen
 import java.io.File
 import java.net.URI
 import java.nio.charset.StandardCharsets
-import java.nio.file.{FileSystems, Files, Path}
-
-import json.schema.parser.JsonSchemaParser
-import json.source.JsonSource
+import java.nio.file.{StandardOpenOption, OpenOption, Files, Path}
 
 import scala.util.control.NonFatal
 import scalaz.Scalaz._
 import scalaz.Validation
 
+object CodeGen {
+
+  implicit class StringTools(v: Option[String]) {
+    def noneIfEmpty: Option[String] = v match {
+      case Some(s) if s.isEmpty => none
+      case _ => v
+    }
+  }
+
+}
+
 trait CodeGen extends Naming {
+
+  import CodeGen._
 
   val additionalPropertiesMember = "_additional"
 
@@ -23,19 +33,21 @@ trait CodeGen extends Naming {
     try {
 
       val packageDir: String = packageName.replaceAll("\\.", File.separator)
-      val modelFile = packageDir + File.separator + fileName
+      val generatedPackageFile = packageDir + File.separator + fileName
 
       // create package structure
       Files.createDirectories(outputDir.resolve(packageDir))
       content(packageName) map {
         fileContent =>
+          val generateAbsoluteFile: Path = outputDir.resolve(generatedPackageFile)
+          Files.deleteIfExists(generateAbsoluteFile)
           Seq(
-            Files.write(outputDir.resolve(modelFile), fileContent.getBytes(StandardCharsets.UTF_8))
+            Files.write(generateAbsoluteFile, fileContent.getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE_NEW)
           )
       }
 
     } catch {
-      case NonFatal(e) => e.getMessage.failure
+      case NonFatal(e) => e.toString.failure
     }
 
   }
@@ -83,18 +95,18 @@ trait CodeGen extends Naming {
     val className = c.identifier
     c.additionalNested.fold(
       s"""
-       |implicit def ${className}Codec=casecodec${c.properties.length}("$className.apply", "$className.unapply")($propNames)
+       |  implicit def ${className}Codec: CodecJson[$className]=casecodec${c.properties.length}($className.apply, $className.unapply)($propNames)
      """.stripMargin
     )(
         additionalType =>
           s"""
-           |implicit def ${className}Codec=CodecJson(MapEncodeJson[$className], MapDecodeJson[$className])
+           |  implicit def ${className}Codec: CodecJson[$className]=CodecJson(MapEncodeJson[$className], MapDecodeJson[$className])
          """.stripMargin
       )
   }
 
   def genPackageName(scope: URI) = {
-    val simpleScope = scope.getFragment.some orElse scope.getPath.some getOrElse scope.getHost
+    val simpleScope = scope.getFragment.some.noneIfEmpty orElse scope.getPath.some.noneIfEmpty.map(p => new File(p).getName) orElse scope.getHost.some.noneIfEmpty getOrElse "local"
     simpleScope.map(c => c.isLetterOrDigit ? c | '.').replaceAll("\\.+$", "").replaceAll("^\\.+", "")
   }
 
@@ -152,36 +164,3 @@ trait CodeGen extends Naming {
 }
 
 
-object CodeGenerator extends CodeGen {
-
-  private implicit class Printable[T](v: T) {
-    def pp: T = {
-      println(v)
-      v
-    }
-  }
-
-  def gen[N: Numeric, T: JsonSource](jsonParser: JsonSchemaParser[N], source: T)(codeGenTarget: Path) = {
-    for {
-      schema <- jsonParser.parse(source).validation.pp
-      models <- ScalaModelGenerator(schema).pp
-      modelFiles <- generateModel(models, schema.scope, codeGenTarget).pp
-      codecFiles <- generateCodec(models, schema.scope, codeGenTarget).pp
-    } yield modelFiles ++ codecFiles
-
-  }
-
-  def main(args: Array[String]) {
-
-    val source: File = new File(args(0))
-
-    val genRoot: Path = FileSystems.getDefault.getPath("/tmp")
-    val generator = if (true) gen(JsonSchemaParser, source)(_) else gen(new JsonSchemaParser[Float], source)(_)
-
-    val result = generator(genRoot)
-    println(result)
-
-    if (result.isFailure) System.exit(1) else System.exit(0)
-
-  }
-}
