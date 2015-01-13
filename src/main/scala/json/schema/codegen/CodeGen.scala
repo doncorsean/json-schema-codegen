@@ -5,6 +5,9 @@ import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.nio.file.{StandardOpenOption, OpenOption, Files, Path}
 
+import json.schema.parser.{SchemaDocument, JsonSchemaParser}
+import json.source.JsonSource
+
 import scala.util.control.NonFatal
 import scalaz.Scalaz._
 import scalaz.Validation
@@ -13,7 +16,7 @@ object CodeGen {
 
   implicit class StringTools(v: Option[String]) {
     def noneIfEmpty: Option[String] = v match {
-      case Some(s) if s.isEmpty => none
+      case Some(s) if s == null || s.isEmpty => none
       case _ => v
     }
   }
@@ -160,6 +163,40 @@ trait CodeGen extends Naming {
     case _ => ""
 
   }
+
+
+  def info(s: => String) = System.out.println(s)
+
+  def debug(s: => String) = System.out.println(s)
+
+  def error(s: => String) = System.err.println(s)
+
+  private implicit class Printable[T](v: T) {
+    def info(prefix: String = ""): T = {
+      info(s"$prefix : $v")
+      v
+    }
+    def error(prefix: String = ""): T = {
+      error(s"$prefix : $v")
+      v
+    }
+    def debug(prefix: String = ""): T = {
+      debug(s"$prefix : $v")
+      v
+    }
+  }
+
+  def gen[N: Numeric, T: JsonSource](jsonParser: JsonSchemaParser[N], source: T)(codeGenTarget: Path) = {
+
+    for {
+      schema: SchemaDocument[N] <- jsonParser.parse(source).validation.debug("parsed schema")
+      models: Set[ScalaType] <- ScalaModelGenerator(schema).debug("generated object model")
+      modelFiles: Seq[Path] <- generateModel(models, schema.scope, codeGenTarget).debug("model files")
+      codecFiles: Seq[Path] <- generateCodec(models, schema.scope, codeGenTarget).debug("serializatoin files")
+    } yield (modelFiles ++ codecFiles).info("generated files")
+
+  }
+
 
 }
 

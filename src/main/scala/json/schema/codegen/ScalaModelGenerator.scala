@@ -1,5 +1,6 @@
 package json.schema.codegen
 
+import java.io.File
 import java.net.URI
 
 import argonaut.Json
@@ -7,7 +8,7 @@ import json.schema.parser.SimpleType._
 import json.schema.parser.{SchemaDocument, SimpleType}
 
 import scala.collection.mutable
-import scalaz.{Leibniz}
+import scalaz.Leibniz
 import scalaz.Scalaz._
 
 trait Naming {
@@ -30,7 +31,7 @@ trait Naming {
 private class ScalaModelGenerator[N](implicit numeric: Numeric[N]) extends Naming {
   type Schema = SchemaDocument[N]
 
-  import ScalaModelGenerator._
+  import json.schema.codegen.ScalaModelGenerator._
 
   val types = mutable.Map.empty[Schema, ScalaType]
 
@@ -71,7 +72,7 @@ private class ScalaModelGenerator[N](implicit numeric: Numeric[N]) extends Namin
       for {
         props <- propertyTypes.sequence
         className <- schemaClassName
-        additional <- schema.additionalProperties.toList.map (nested => any(nested, (className+"Extra").some)).sequence.map(_.headOption)
+        additional <- schema.additionalProperties.toList.map (nested => any(nested, (className+"Additional").some)).sequence.map(_.headOption)
       } yield {
         val newType = ScalaClass(className, props, additional)
         types.put(schema, newType)
@@ -140,16 +141,15 @@ private class ScalaModelGenerator[N](implicit numeric: Numeric[N]) extends Namin
 
 object ScalaModelGenerator {
 
-
   type Validation[T] = scalaz.Validation[String, T]
 
-
   def apply[N: Numeric](schema: SchemaDocument[N]): scalaz.Validation[String, Set[ScalaType]] = {
+
     val generator: ScalaModelGenerator[N] = new ScalaModelGenerator()
 
-    val scope = (schema.scope.getPath + schema.scope.getFragment).map(c => c.isLetterOrDigit ? c | '.')
+    val scope = generator.identifier(schema.scope).some
 
-    generator.any(schema, scope.some) map {
+    generator.any(schema, scope) map {
       t =>
         (t :: generator.types.values.toList).toSet // to remove duplicate types
     }

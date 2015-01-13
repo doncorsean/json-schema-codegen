@@ -28,6 +28,12 @@ object Plugin extends sbt.AutoPlugin {
 
           val log = s.log("json-schema-codegen")
 
+          val codegen = new CodeGen {
+            override def info(s: => String): Unit = log.info(s)
+
+            override def error(s: => String): Unit = log.error(s)
+          }
+
           val cachedFun = FileFunction.cached(s.cacheDirectory / "json-schema",
             FilesInfo.lastModified, /* inStyle */
             FilesInfo.exists) /* outStyle */ {
@@ -37,7 +43,7 @@ object Plugin extends sbt.AutoPlugin {
                 source =>
                   val genRoot: Path = dir.toPath
                   log.info(s"Generating code using $source in $genRoot")
-                  val generator = if (true) CodeGenerator.gen(JsonSchemaParser, source)(_) else CodeGenerator.gen(new JsonSchemaParser[Float], source)(_)
+                  val generator = if (true) codegen.gen(JsonSchemaParser, source)(_) else codegen.gen(new JsonSchemaParser[Float], source)(_)
                   generator(genRoot).fold(
                     e => throw new IllegalArgumentException(s"Failed code generation in $source: $e "),
                     p => p.map(_.toFile)
@@ -54,5 +60,6 @@ object Plugin extends sbt.AutoPlugin {
       }
 
   )
+
 
 }
