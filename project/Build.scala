@@ -9,7 +9,6 @@ import sbtrelease.ReleasePlugin._
 object Build extends Build {
 
   lazy val projectSettings = Seq(
-    version := "0.0.1-SNAPSHOT",
 
     organization := "com.voxsupplychain",
 
