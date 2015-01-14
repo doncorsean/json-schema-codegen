@@ -1,6 +1,6 @@
 package json.schema.codegen
 
-import java.io.File
+import java.io.{FilenameFilter, File}
 import java.nio.file.Path
 
 import json.schema.parser.JsonSchemaParser
@@ -29,6 +29,8 @@ object Plugin extends sbt.AutoPlugin {
           val log = s.log("json-schema-codegen")
 
           val codegen = new CodeGen {
+            override def debug(s: => String): Unit = log.debug(s)
+
             override def info(s: => String): Unit = log.info(s)
 
             override def error(s: => String): Unit = log.error(s)
@@ -52,7 +54,10 @@ object Plugin extends sbt.AutoPlugin {
           }
 
           // track all source folders under dart, except "build", since it is modified for each build
-          val srcFolders = schemaSrc.listFiles()
+          val srcFolders = schemaSrc.listFiles(new FilenameFilter {
+            override def accept(dir: File, name: String): Boolean = name.endsWith(".json")
+          })
+
           if (srcFolders == null)
             throw new IllegalArgumentException(s"no schema files found in $schemaSrc")
 
