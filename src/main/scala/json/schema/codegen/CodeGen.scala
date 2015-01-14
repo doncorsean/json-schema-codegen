@@ -3,44 +3,32 @@ package json.schema.codegen
 import java.io.File
 import java.net.URI
 import java.nio.charset.StandardCharsets
-import java.nio.file.{StandardOpenOption, OpenOption, Files, Path}
+import java.nio.file.{Files, Path, StandardOpenOption}
 
-import json.schema.parser.{SchemaDocument, JsonSchemaParser}
+import json.schema.parser.{JsonSchemaParser, SchemaDocument}
 import json.source.JsonSource
 
 import scala.util.control.NonFatal
 import scalaz.Scalaz._
 import scalaz.Validation
 
-object CodeGen {
-
-  implicit class StringTools(v: Option[String]) {
-    def noneIfEmpty: Option[String] = v match {
-      case Some(s) if s == null || s.isEmpty => none
-      case _ => v
-    }
-  }
-
-}
-
 trait CodeGen extends Naming {
-
-  import CodeGen._
 
   val addPropName = "_additional"
 
-  def generateFile(scope: URI, fileName: String, outputDir: Path)(content: String => Validation[String, String]): Validation[String, Seq[Path]] = {
+  def generateFile(scope: URI, fileName: String, outputDir: Path)(content: Option[String] => Validation[String, String]): Validation[String, Seq[Path]] = {
 
-    val packageName = genPackageName(scope)
+    val codePackage: Option[String] = packageName(scope)
 
     try {
 
-      val packageDir: String = packageName.replaceAll("\\.", File.separator)
-      val generatedPackageFile = packageDir + File.separator + fileName
+      val packageDir = codePackage.map(_.replaceAll("\\.", File.separator))
+      val generatedPackageFile = packageDir.map(_ + File.separator + fileName).getOrElse(fileName)
 
       // create package structure
-      Files.createDirectories(outputDir.resolve(packageDir))
-      content(packageName) map {
+      packageDir.foreach( d=> Files.createDirectories(outputDir.resolve(d)))
+
+      content(codePackage) map {
         fileContent =>
           val generateAbsoluteFile: Path = outputDir.resolve(generatedPackageFile)
           Files.deleteIfExists(generateAbsoluteFile)
@@ -64,8 +52,10 @@ trait CodeGen extends Naming {
           case _ => ""
         }.mkString("\n")
 
+
+        val packageDecl = packageName.map(p => s"package $p").getOrElse("")
         s"""
-         |package $packageName
+         |$packageDecl
          |
          |import argonaut._, Argonaut._
          |
@@ -82,11 +72,12 @@ trait CodeGen extends Naming {
     generateFile(scope, "model.scala", outputDir) {
       packageName =>
 
+        val packageDecl = packageName.map(p => s"package $p\n\n").getOrElse("")
         ts.map {
           case t: ScalaClass => genType(t)
           case _ => ""
         }.mkString(
-            s"package $packageName\n\n",
+            packageDecl,
             "\n\n", ""
           ).success
 
@@ -125,11 +116,6 @@ trait CodeGen extends Naming {
        |
        """.stripMargin
     }
-  }
-
-  def genPackageName(scope: URI) = {
-    val simpleScope = scope.getFragment.some.noneIfEmpty orElse scope.getPath.some.noneIfEmpty.map(p => new File(p).getName) orElse scope.getHost.some.noneIfEmpty getOrElse "local"
-    simpleScope.map(c => c.isLetterOrDigit ? c | '.').replaceAll("\\.+$", "").replaceAll("^\\.+", "")
   }
 
   def genPropertyType(t: ScalaType): String = {

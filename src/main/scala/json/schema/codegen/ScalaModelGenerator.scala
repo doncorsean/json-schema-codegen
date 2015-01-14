@@ -13,19 +13,41 @@ import scalaz.Scalaz._
 
 trait Naming {
 
-  def identifier(uri: URI): String = {
-    val str = uri.toString
-    val lastSlash: Int = str.lastIndexOf('/')
-    val lastSegment = (lastSlash >= 0) ? str.substring(lastSlash) | str
-    identifier(lastSegment.filter(c => c != '#'))
+  implicit class StringToolsO(v: Option[String]) {
+    def noneIfEmpty: Option[String] = v match {
+      case Some(s) if s == null || s.isEmpty => none
+      case _ => v
+    }
   }
 
-  def identifier(s: String) = s.map(c => c.isLetterOrDigit ? c | '_')
+  def removeExtension(s: String ) = {
+    val extIndex = s.lastIndexOf('.')
+    (extIndex >= 0) ? s.substring(0, extIndex) | s
+  }
+  def packageName(scope: URI): Option[String] = {
+    val simpleScope = (scope.getScheme == "file") ? new File(scope).getName.some | scope.getFragment.some.noneIfEmpty orElse scope.getPath.some.noneIfEmpty orElse scope.getHost.some.noneIfEmpty
+    simpleScope.map(removeExtension).map(_.map(c => c.isLetterOrDigit ? c | '.').replaceAll("\\.+$", "").replaceAll("^\\.+", ""))
+  }
+
+  def className(scope: URI): scalaz.Validation[String, String] = identifier(scope).map(underscoreToCamel).map(_.capitalize)
+  def className(schema: SchemaDocument[_], defaultName: Option[String]): scalaz.Validation[String, String] = (
+    schema.id.toSuccess("Schema has no Id").flatMap(identifier).map(underscoreToCamel) orElse defaultName.toSuccess("Default name not given").map(s => underscoreToCamel(identifier(s)))
+    ).map(_.capitalize)
+
+  def identifier(scope: URI): scalaz.Validation[String, String] = {
+    val str = scope.toString
+    val lastSlash: Int = str.lastIndexOf('/')
+    val lastSegment = (lastSlash >= 0) ? str.substring(lastSlash) | str
+    val noExtSegment = removeExtension(lastSegment)
+    identifier(noExtSegment.filter(c => c != '#')).some.noneIfEmpty.toSuccess(s"Unable to extract identifier from $scope")
+  }
+
+  def identifier(s: String): String = s.map(c => c.isLetterOrDigit ? c | '_')
 
   def underscoreToCamel(name: String): String = "_([a-z\\d])".r.replaceAllIn(name, { m =>
     m.group(1).toUpperCase
   })
-  
+
 }
 
 private class ScalaModelGenerator[N](implicit numeric: Numeric[N]) extends Naming {
@@ -45,15 +67,13 @@ private class ScalaModelGenerator[N](implicit numeric: Numeric[N]) extends Namin
   )
 
 
-  def genClassName(schema: Schema, name: Option[String]): Validation[String] = schema.id.map(u => underscoreToCamel(identifier(u))).orElse(name.map(s => underscoreToCamel(identifier(s)))).map(_.capitalize).toSuccess(s"Can not name $schema")
-
   def `object`(schema: Schema, name: Option[String]): Validation[ScalaType] = {
 
     implicit val ev = Leibniz.refl[Validation[ScalaTypeProperty]]
 
     if (SimpleType.`object` == schema.common.types.headOption.orNull) {
 
-      val schemaClassName: Validation[String] = genClassName(schema, name)
+      val schemaClassName: Validation[String] = className(schema, name)
 
       val propertyTypes: List[Validation[ScalaTypeProperty]] = schema.properties.value.map {
         case (n, prop) =>
@@ -72,7 +92,7 @@ private class ScalaModelGenerator[N](implicit numeric: Numeric[N]) extends Namin
       for {
         props <- propertyTypes.sequence
         className <- schemaClassName
-        additional <- schema.additionalProperties.toList.map (nested => any(nested, (className+"Additional").some)).sequence.map(_.headOption)
+        additional <- schema.additionalProperties.toList.map(nested => any(nested, (className + "Additional").some)).sequence.map(_.headOption)
       } yield {
         val newType = ScalaClass(className, props, additional)
         types.put(schema, newType)
@@ -109,13 +129,13 @@ private class ScalaModelGenerator[N](implicit numeric: Numeric[N]) extends Namin
 
     for {
       t <- schema.common.types.headOption.toSuccess("Type is required")
-      className <- genClassName(schema, name)
+      className <- className(schema, name)
       enums: Set[Json] <- schema.enums.isEmpty ? "Enum not defined".fail[Set[Json]] | schema.enums.success[String]
       enumNestedSchema = schema.copy(enums = Set.empty)
-      nestedType <- any(enumNestedSchema, (className +"Value").some )
+      nestedType <- any(enumNestedSchema, (className + "Value").some)
     } yield {
 
-      val enumNested= t match {
+      val enumNested = t match {
         case SimpleType.string => enums.map(_.string.toSeq).flatten
         case SimpleType.number => enums.map(_.number.toSeq).flatten
         case SimpleType.integer => enums.map(_.number.toSeq).flatten
@@ -147,9 +167,9 @@ object ScalaModelGenerator {
 
     val generator: ScalaModelGenerator[N] = new ScalaModelGenerator()
 
-    val scope = generator.identifier(schema.scope).some
+    val typeName = generator.className(schema.scope).toOption orElse Some("Root")
 
-    generator.any(schema, scope) map {
+    generator.any(schema, typeName) map {
       t =>
         (t :: generator.types.values.toList).toSet // to remove duplicate types
     }
