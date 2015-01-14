@@ -22,9 +22,12 @@ trait Naming {
   }
 
   def packageName(scope: URI): Option[String] = {
+    // package from URI's fragment, path or host
     lazy val fromURI = scope.getFragment.some.noneIfEmpty orElse scope.getPath.some.noneIfEmpty orElse scope.getHost.some.noneIfEmpty
+
+    // package from file URI , using only the file name
     val simpleScope = try {
-      (scope.getScheme == "file") ? new File(scope).getName.some | fromURI
+      (scope.getScheme == "file") ? new File(scope.getPath).getName.some | fromURI
     } catch {
       case NonFatal(e) => fromURI
     }

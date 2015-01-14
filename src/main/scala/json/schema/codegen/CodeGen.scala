@@ -26,7 +26,7 @@ trait CodeGen extends Naming {
       val generatedPackageFile = packageDir.map(_ + File.separator + fileName).getOrElse(fileName)
 
       // create package structure
-      packageDir.foreach( d=> Files.createDirectories(outputDir.resolve(d)))
+      packageDir.foreach(d => Files.createDirectories(outputDir.resolve(d)))
 
       content(codePackage) map {
         fileContent =>
@@ -49,6 +49,7 @@ trait CodeGen extends Naming {
 
         val codecs = ts.map {
           case t: ScalaClass => genCodec(t)
+          case t: ScalaEnum => genCodec(t)
           case _ => ""
         }.mkString("\n")
 
@@ -73,13 +74,10 @@ trait CodeGen extends Naming {
       packageName =>
 
         val packageDecl = packageName.map(p => s"package $p\n\n").getOrElse("")
-        ts.map {
-          case t: ScalaClass => genType(t)
-          case _ => ""
-        }.mkString(
-            packageDecl,
-            "\n\n", ""
-          ).success
+        ts.map(genType).mkString(
+          packageDecl,
+          "\n\n", ""
+        ).success
 
     }
   }
@@ -116,6 +114,20 @@ trait CodeGen extends Naming {
        |
        """.stripMargin
     }
+  }
+
+  def genCodec(c: ScalaEnum): String = {
+    val className = c.identifier
+    s"""
+       |  implicit def ${className}Codec: CodecJson[$className.Value] = CodecJson[$className.Value]((v: $className.Value) => v.${if (c.nested.identifier == "String") "toString" else "id"}.asJson, (j: HCursor) => j.as[${c.nested.identifier}].flatMap {
+       |    s: ${c.nested.identifier} =>
+       |      try{
+       |        DecodeResult.ok(${if (c.nested.identifier == "String") className + ".withName" else className}(s))
+       |      } catch {
+       |        case e:NoSuchElementException => DecodeResult.fail("$className", j.history)
+       |      }
+       |  })
+     """.stripMargin
   }
 
   def genPropertyType(t: ScalaType): String = {
