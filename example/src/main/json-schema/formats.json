@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "properties": {
+    "uri": {
+      "type": "string",
+      "format": "uri"
+    },
+    "ipv4": {
+      "type": "string",
+      "format": "ipv4"
+    },
+    "ipv6": {
+      "type": "string",
+      "format": "ipv6"
+    },
+    "date-time": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "uri", "ipv4", "ipv6", "date-time"
+  ]
+}

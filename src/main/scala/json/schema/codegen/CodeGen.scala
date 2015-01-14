@@ -50,6 +50,10 @@ trait CodeGen extends Naming {
         val codecs = ts.map {
           case t: ScalaClass => genCodec(t)
           case t: ScalaEnum => genCodec(t)
+          case ScalaSimple("java.net.URI") => genCodecURI()
+          case ScalaSimple("java.net.Inet4Address") => genCodecInetAddress("4")
+          case ScalaSimple("java.net.Inet6Address") => genCodecInetAddress("6")
+          case ScalaSimple("java.util.Date") => genCodecDate()
           case _ => ""
         }.mkString("\n")
 
@@ -129,6 +133,61 @@ trait CodeGen extends Naming {
        |  })
      """.stripMargin
   }
+
+  def genCodecURI() =
+    """
+      |  implicit def URICodec: CodecJson[java.net.URI] = CodecJson.derived(
+      |    EncodeJson(v => jString(v.toString)),
+      |    StringDecodeJson.flatMap {
+      |      uri =>
+      |        DecodeJson(
+      |          j => {
+      |            try{
+      |              DecodeResult.ok(new java.net.URI(uri))
+      |            } catch {
+      |              case e:NoSuchElementException => DecodeResult.fail("URI", j.history)
+      |            }
+      |          }
+      |        )
+      |    })
+    """.stripMargin
+
+  def genCodecDate() =
+    s"""
+      |  private def isoDate = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX")
+      |  implicit def DateCodec: CodecJson[java.util.Date] = CodecJson.derived(
+      |    EncodeJson(v => jString(isoDate.format(v))),
+      |    StringDecodeJson.flatMap {
+      |      time =>
+      |        DecodeJson(
+      |          j => {
+      |            try {
+      |              DecodeResult.ok(isoDate.parse(time))
+      |            } catch {
+      |              case e: NoSuchElementException => DecodeResult.fail("Inet6Address", j.history)
+      |            }
+      |          }
+      |        )
+      |    })
+    """.stripMargin
+
+  def genCodecInetAddress(v: String) =
+    s"""
+      |  implicit def Inet${v}AddressCodec: CodecJson[java.net.Inet${v}Address] = CodecJson.derived(
+      |    EncodeJson(v => jString(v.toString.substring(1))),
+      |    StringDecodeJson.flatMap {
+      |      addr =>
+      |        DecodeJson(
+      |          j => {
+      |            try {
+      |              DecodeResult.ok(java.net.InetAddress.getByName(addr).asInstanceOf[java.net.Inet${v}Address])
+      |            } catch {
+      |              case e: NoSuchElementException => DecodeResult.fail("Inet${v}Address", j.history)
+      |            }
+      |          }
+      |        )
+      |    })
+    """.stripMargin
 
   def genPropertyType(t: ScalaType): String = {
     t match {

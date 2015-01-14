@@ -15,7 +15,7 @@ private class ScalaModelGenerator[N](implicit numeric: Numeric[N]) extends Namin
 
   val types = mutable.Map.empty[Schema, ScalaType]
 
-  val json2scala: Map[SimpleType, ScalaType] = Map(
+  val json2scala: Map[SimpleType, ScalaSimple] = Map(
     SimpleType.string -> ScalaSimple("String"),
     SimpleType.integer -> ScalaSimple("Int"),
     SimpleType.boolean -> ScalaSimple("Boolean"),
@@ -24,6 +24,14 @@ private class ScalaModelGenerator[N](implicit numeric: Numeric[N]) extends Namin
     SimpleType.`null` -> ScalaSimple("Any")
   )
 
+  val format2scala: Map[(ScalaSimple, String), ScalaSimple] = Map(
+    (ScalaSimple("String"), "uri") -> ScalaSimple("java.net.URI"),
+    (ScalaSimple("String"), "date-time") -> ScalaSimple("java.util.Date"),
+    (ScalaSimple("String"), "ipv6") -> ScalaSimple("java.net.Inet6Address"),
+    (ScalaSimple("String"), "ipv4") -> ScalaSimple("java.net.Inet4Address"),
+    (ScalaSimple("String"), "email") -> ScalaSimple("String"),
+    (ScalaSimple("String"), "hostname") -> ScalaSimple("String")
+  )
 
   def `object`(schema: Schema, name: Option[String]): Validation[ScalaType] = {
 
@@ -79,7 +87,16 @@ private class ScalaModelGenerator[N](implicit numeric: Numeric[N]) extends Namin
   }
 
   def simple(schema: Schema): Validation[ScalaType] = {
-    schema.common.types.headOption.map(json2scala.get).flatten.toSuccess("Type is not simple")
+    schema.common.types.headOption.flatMap(json2scala.get).toSuccess("Type is not simple") map {
+      simpleType =>
+        // if there is a format, try to find type that corresponds to the format
+        val formatType = schema.common.format.flatMap(format =>
+          format2scala.get((simpleType, format.toLowerCase))
+        ).getOrElse(simpleType)
+
+        types.put(schema, formatType)
+        formatType
+    }
   }
 
 

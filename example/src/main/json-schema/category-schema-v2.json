@@ -35,6 +35,7 @@
     "link": {
       "id": "#/definitions/link",
       "type": "string",
+      "format": "uri",
       "title": "",
       "pattern": "^(http|https)://[\\w\\-_]+(\\.[\\w\\-_]+)+([\\w\\-\\.,@?^=%&amp;:/~\\+#]*[\\w\\-\\@?^=%&amp;/~\\+#])?$"
     },

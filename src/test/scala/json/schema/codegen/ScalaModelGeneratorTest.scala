@@ -34,6 +34,15 @@ class ScalaModelGeneratorTest extends FlatSpec with GeneratorDrivenPropertyCheck
       """.stripMargin).map(_.identifier) shouldBe Success("String")
   }
 
+  it should "convert simple types with format to Scala types" in {
+    parse(
+      """
+        |{"type":"string",
+        |"format":"uri"
+        |}
+      """.stripMargin).map(_.identifier) shouldBe Success("java.net.URI")
+  }
+
   it should "convert array of unique items to Scala Set" in {
     parse(
       """
