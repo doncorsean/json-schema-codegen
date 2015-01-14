@@ -14,24 +14,24 @@ object Build extends Build {
 
     scalaVersion := "2.10.4",
 
-resolvers += Resolver.url(
-  "vox-public-ivy",
-    url("http://dl.bintray.com/content/voxsupplychain/ivy-public"))(
+    resolvers += Resolver.url(
+      "vox-public-ivy",
+      url("http://dl.bintray.com/content/voxsupplychain/ivy-public"))(
         Resolver.ivyStylePatterns),
 
-packageLabels in bintray := Seq("json-schema", "parser"),
+    packageLabels in bintray := Seq("json-schema", "parser"),
 
-publishMavenStyle := false,
+    publishMavenStyle := false,
 
-licenses += ("Apache-2.0" -> new URL("http://www.apache.org/licenses/LICENSE-2.0")),
+    licenses += ("Apache-2.0" -> new URL("http://www.apache.org/licenses/LICENSE-2.0")),
 
-repository in bintray := "ivy-public",
+    repository in bintray := "ivy-public",
 
-bintrayOrganization in bintray := Some("voxsupplychain")
+    bintrayOrganization in bintray := Some("voxsupplychain")
 
   ) ++ bintraySettings ++ releaseSettings
 
-  lazy val root = Project(id = "json-schema-codegen-root", base = file(".")).aggregate(codegen, sbtplugin).settings(projectSettings:_*)
+  lazy val root = Project(id = "json-schema-codegen-root", base = file(".")).aggregate(codegen, sbtplugin).settings(projectSettings: _*)
 
   lazy val codegen = Project(id = "json-schema-codegen", base = file("codegen"))
     .settings(
