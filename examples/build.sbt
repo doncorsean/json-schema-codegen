@@ -1,6 +1,6 @@
 import json.schema.codegen.Plugin
 
-name := "json-schema-codegen-example"
+name := "json-schema-codegen-examples"
 
 Plugin.projectSettings
 
