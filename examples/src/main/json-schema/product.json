@@ -239,17 +239,15 @@
     "cash": {
       "type": "object",
       "title": "cash amount",
-      "items": {
-        "properties": {
-          "currency": {
-            "$ref": "#/definitions/currency",
-            "title": "price currency"
-          },
-          "cost": {
-            "id": "#/definitions/cost",
-            "title": "cost for specified amount",
-            "type": "number"
-          }
+      "properties": {
+        "currency": {
+          "$ref": "#/definitions/currency",
+          "title": "price currency"
+        },
+        "cost": {
+          "id": "#/definitions/cost",
+          "title": "cost for specified amount",
+          "type": "number"
         }
       },
       "required": [
