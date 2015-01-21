@@ -7,11 +7,12 @@ import java.nio.file.{Files, Path, StandardOpenOption}
 
 import json.schema.parser.{JsonSchemaParser, SchemaDocument}
 import json.source.JsonSource
-  import scala.util.control.NonFatal
+import scala.util.control.NonFatal
 import scalaz.Validation
 
 
 trait CodeGen extends Naming {
+
   import scalaz.Scalaz._
 
   val addPropName = "_additional"
@@ -44,7 +45,8 @@ trait CodeGen extends Naming {
   }
 
   def generateCodec(ts: Iterable[ScalaType], scope: URI, outputDir: Path): Validation[String, Seq[Path]] = {
-    generateFile(scope, "Codecs.scala", outputDir) {
+    val codecClassName: String = className(scope) + "Codec"
+    generateFile(scope, codecClassName + ".scala", outputDir) {
       packageName =>
 
         val codecs = ts.map {
@@ -64,7 +66,7 @@ trait CodeGen extends Naming {
          |
          |import argonaut._, Argonaut._
          |
-         |object Codecs {
+         |object $codecClassName {
          |$codecs
          |}
         """.stripMargin.success
@@ -74,7 +76,7 @@ trait CodeGen extends Naming {
   }
 
   def generateModel(ts: Iterable[ScalaType], scope: URI, outputDir: Path): Validation[String, Seq[Path]] = {
-    generateFile(scope, "model.scala", outputDir) {
+    generateFile(scope, className(scope) + ".scala", outputDir) {
       packageName =>
 
         val packageDecl = packageName.map(p => s"package $p\n\n").getOrElse("")
