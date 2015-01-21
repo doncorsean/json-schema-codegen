@@ -59,7 +59,7 @@ object Plugin extends sbt.AutoPlugin {
           })
 
           if (srcFolders == null)
-            throw new IllegalArgumentException(s"no schema files found in $schemaSrc")
+            log.info(s"no schema files found in $schemaSrc")
 
           cachedFun(srcFolders.toSet).toSeq
       }
