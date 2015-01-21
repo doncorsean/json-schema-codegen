@@ -6,7 +6,7 @@ import org.scalatest.{FlatSpec, Matchers}
 
 import scalaz.{Success, Validation}
 
-class ScalaModelGeneratorTest extends FlatSpec with GeneratorDrivenPropertyChecks with Matchers  {
+class ScalaModelGeneratorTest extends FlatSpec  with Matchers  {
 
 
   def parse(s: String): Validation[String, ScalaType] = JsonSchemaParser.parse(s).validation.flatMap(ScalaModelGenerator(_)).map(_.head)

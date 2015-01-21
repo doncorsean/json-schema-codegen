@@ -142,7 +142,7 @@ object ScalaModelGenerator {
 
     val generator: ScalaModelGenerator[N] = new ScalaModelGenerator()
 
-    val typeName = generator.className(schema.scope).toOption orElse Some("Root")
+    val typeName = generator.className(schema.scope).some
 
     generator.any(schema, typeName) map {
       t =>

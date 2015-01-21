@@ -7,28 +7,28 @@ import java.nio.file.{Files, Path, StandardOpenOption}
 
 import json.schema.parser.{JsonSchemaParser, SchemaDocument}
 import json.source.JsonSource
-
-import scala.util.control.NonFatal
-import scalaz.Scalaz._
+  import scala.util.control.NonFatal
 import scalaz.Validation
 
+
 trait CodeGen extends Naming {
+  import scalaz.Scalaz._
 
   val addPropName = "_additional"
 
   def generateFile(scope: URI, fileName: String, outputDir: Path)(content: Option[String] => Validation[String, String]): Validation[String, Seq[Path]] = {
 
-    val codePackage: Option[String] = packageName(scope)
+    val codePackage: String = packageName(scope)
 
     try {
 
-      val packageDir = codePackage.map(_.replaceAll("\\.", File.separator))
-      val generatedPackageFile = packageDir.map(_ + File.separator + fileName).getOrElse(fileName)
+      val packageDir = codePackage.replaceAll("\\.", File.separator)
+      val generatedPackageFile = packageDir + File.separator + fileName
 
       // create package structure
-      packageDir.foreach(d => Files.createDirectories(outputDir.resolve(d)))
+      Files.createDirectories(outputDir.resolve(packageDir))
 
-      content(codePackage) map {
+      content(codePackage.some.noneIfEmpty) map {
         fileContent =>
           val generateAbsoluteFile: Path = outputDir.resolve(generatedPackageFile)
           Files.deleteIfExists(generateAbsoluteFile)

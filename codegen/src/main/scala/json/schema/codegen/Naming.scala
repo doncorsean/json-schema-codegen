@@ -21,20 +21,34 @@ trait Naming {
     (extIndex >= 0) ? s.substring(0, extIndex) | s
   }
 
-  def packageName(scope: URI): Option[String] = {
+  private def dotNotation(scope: URI) = {
+
+    val fragment: String = scope.getFragment.some.noneIfEmpty.map( s => s.startsWith("/") ? s | "/" + s).getOrElse("")
     // package from URI's fragment, path or host
-    lazy val fromURI = scope.getFragment.some.noneIfEmpty orElse scope.getPath.some.noneIfEmpty orElse scope.getHost.some.noneIfEmpty
+    lazy val fromURI: String = scope.getPath.some.noneIfEmpty.getOrElse("") + fragment
 
     // package from file URI , using only the file name
-    val simpleScope = try {
-      (scope.getScheme == "file") ? new File(scope.getPath).getName.some | fromURI
+    val simpleScope: String = try {
+      (scope.getScheme == "file") ? (new File(new URI(scope.getScheme, scope.getHost, scope.getPath, null)).getName + fragment) | fromURI
     } catch {
       case NonFatal(e) => fromURI
     }
-    simpleScope.map(removeExtension).map(_.map(c => c.isLetterOrDigit ? c | '.').replaceAll("\\.+$", "").replaceAll("^\\.+", ""))
+
+    removeExtension(simpleScope).map(c => Character.isJavaIdentifierPart(c) ? c | '.').replaceAll("\\.+$", "").replaceAll("^\\.+", "")
+
   }
 
-  def className(scope: URI): scalaz.Validation[String, String] = identifier(scope).map(underscoreToCamel).map(_.capitalize)
+  def packageName(scope: URI): String = {
+    val dots = dotNotation(scope)
+    val i = dots.lastIndexOf('.')
+    (i >= 0) ? dots.substring(0, i) | dots
+  }
+
+  def className(scope: URI): String = {
+    val dots = dotNotation(scope)
+    val i = dots.lastIndexOf('.')
+    underscoreToCamel(identifier((i >= 0) ? dots.substring(i) | dots)).capitalize
+  }
 
   def className(schema: SchemaDocument[_], defaultName: Option[String]): scalaz.Validation[String, String] = (
     schema.id.toSuccess("Schema has no Id").flatMap(identifier).map(underscoreToCamel) orElse defaultName.toSuccess("Default name not given").map(s => underscoreToCamel(identifier(s)))
