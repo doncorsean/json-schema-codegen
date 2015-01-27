@@ -208,7 +208,7 @@ trait CodeGen extends Naming {
       val properties = t.properties.map {
         p =>
           val propType = genPropertyType(p)
-          val member = underscoreToCamel(identifier(p.name))
+          val member = memberName(p.name)
           s"$member:$propType"
       }
       val extra =
@@ -226,7 +226,7 @@ trait CodeGen extends Naming {
     case t: ScalaEnum =>
       val valueDeclarations = t.enums.map {
         case v: String =>
-          val valueId = identifier(v)
+          val valueId = memberName(v)
           s"""val $valueId = Value("$v")"""
         case v: Int =>
           val valueId = s"v${v.toInt}"

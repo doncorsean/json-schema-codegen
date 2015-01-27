@@ -76,7 +76,7 @@ class CodeGenTest extends FlatSpec with Matchers with CodeGen {
            |}
          """.stripMargin) shouldBe Success( """
                                               |object Product extends Enumeration {
-                                              |val a_1 = Value("a 1")
+                                              |val a1 = Value("a 1")
                                               |val b = Value("b")
                                               |}""".stripMargin.trim)
     gen( """

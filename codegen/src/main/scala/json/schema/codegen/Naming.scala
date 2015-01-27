@@ -21,9 +21,9 @@ trait Naming {
     (extIndex >= 0) ? s.substring(0, extIndex) | s
   }
 
-  private def dotNotation(scope: URI) = {
+   def dotNotation(scope: URI) = {
 
-    val fragment: String = scope.getFragment.some.noneIfEmpty.map( s => s.startsWith("/") ? s | "/" + s).getOrElse("")
+    val fragment: String = scope.getFragment.some.noneIfEmpty.map(s => s.startsWith("/") ? s | "/" + s).getOrElse("")
     // package from URI's fragment, path or host
     lazy val fromURI: String = scope.getPath.some.noneIfEmpty.getOrElse("") + fragment
 
@@ -34,25 +34,27 @@ trait Naming {
       case NonFatal(e) => fromURI
     }
 
-    removeExtension(simpleScope).map(c => Character.isJavaIdentifierPart(c) ? c | '.').replaceAll("\\.+$", "").replaceAll("^\\.+", "")
+    val dottedString = removeExtension(simpleScope).map(c => Character.isJavaIdentifierPart(c) ? c | '.').replaceAll("\\.+$", "").replaceAll("^\\.+", "")
 
+    dottedString.split('.').map( s=> escapeKeyword(underscoreToCamel(identifier(s))) )
   }
 
   def packageName(scope: URI): String = {
     val dots = dotNotation(scope)
-    val i = dots.lastIndexOf('.')
-    (i >= 0) ? dots.substring(0, i) | dots
+    dots.take(dots.size - 1).mkString(".")
   }
 
   def className(scope: URI): String = {
     val dots = dotNotation(scope)
-    val i = dots.lastIndexOf('.')
-    underscoreToCamel(identifier((i >= 0) ? dots.substring(i) | dots)).capitalize
+    val name = dots.lastOption.getOrElse(dots.head)
+    escapeKeyword(underscoreToCamel(identifier(name))).capitalize
   }
 
   def className(schema: SchemaDocument[_], defaultName: Option[String]): scalaz.Validation[String, String] = (
     schema.id.toSuccess("Schema has no Id").flatMap(identifier).map(underscoreToCamel) orElse defaultName.toSuccess("Default name not given").map(s => underscoreToCamel(identifier(s)))
-    ).map(_.capitalize)
+    ).map(s => escapeKeyword(s).capitalize)
+
+  def memberName(s: String) = escapeKeyword(underscoreToCamel(identifier(s)))
 
   def identifier(scope: URI): scalaz.Validation[String, String] = {
     val str = scope.toString
@@ -68,4 +70,18 @@ trait Naming {
     m.group(1).toUpperCase
   })
 
+  def escapeKeyword(s: String) = keywords.contains(s) ? ('_' + s) | s
+
+  val keywords = Set(
+    "abstract", "case", "catch", "class",
+    "def", "do", "else", "extends",
+    "false", "final", "finally", "for",
+    "forSome", "if", "implicit", "import",
+    "lazy", "match", "new", "null",
+    "object", "override", "package", "private",
+    "protected", "return", "sealed", "super",
+    "this", "throw", "trait", "try",
+    "true", "type", "val", "var",
+    "while", "with", "yield"
+  )
 }
