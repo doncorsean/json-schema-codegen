@@ -24,14 +24,16 @@ trait CodeGen extends Naming {
     try {
 
       val packageDir = codePackage.replaceAll("\\.", File.separator)
-      val generatedPackageFile = packageDir + File.separator + fileName
 
       // create package structure
-      Files.createDirectories(outputDir.resolve(packageDir))
+      val fileDir: Path = outputDir.resolve(packageDir)
+
+      if (!fileDir.toFile.exists())
+        Files.createDirectories(fileDir)
 
       content(codePackage.some.noneIfEmpty) map {
         fileContent =>
-          val generateAbsoluteFile: Path = outputDir.resolve(generatedPackageFile)
+          val generateAbsoluteFile: Path = fileDir.resolve(fileName)
           Files.deleteIfExists(generateAbsoluteFile)
           Seq(
             Files.write(generateAbsoluteFile, fileContent.getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE_NEW)
@@ -46,7 +48,8 @@ trait CodeGen extends Naming {
 
   def generateCodec(ts: Iterable[ScalaType], scope: URI, outputDir: Path): Validation[String, Seq[Path]] = {
     val codecClassName: String = className(scope) + "Codec"
-    generateFile(scope, codecClassName + ".scala", outputDir) {
+    val fileName: String = codecClassName + ".scala"
+    generateFile(scope, fileName, outputDir) {
       packageName =>
 
         val codecs = ts.map {
@@ -66,9 +69,11 @@ trait CodeGen extends Naming {
          |
          |import argonaut._, Argonaut._
          |
-         |object $codecClassName {
+         |trait $codecClassName {
          |$codecs
          |}
+         |
+         |object $codecClassName extends $codecClassName
         """.stripMargin.success
 
     }
@@ -76,7 +81,8 @@ trait CodeGen extends Naming {
   }
 
   def generateModel(ts: Iterable[ScalaType], scope: URI, outputDir: Path): Validation[String, Seq[Path]] = {
-    generateFile(scope, className(scope) + ".scala", outputDir) {
+    val fileName: String = className(scope) + ".scala"
+    generateFile(scope, fileName, outputDir) {
       packageName =>
 
         val packageDecl = packageName.map(p => s"package $p\n\n").getOrElse("")
