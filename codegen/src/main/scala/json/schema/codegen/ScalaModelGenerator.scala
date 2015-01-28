@@ -17,7 +17,7 @@ private class ScalaModelGenerator[N](implicit numeric: Numeric[N]) extends Namin
 
   val json2scala: Map[SimpleType, ScalaSimple] = Map(
     SimpleType.string -> ScalaSimple("String"),
-    SimpleType.integer -> ScalaSimple("Long"),
+    SimpleType.integer -> ScalaSimple("Int"),
     SimpleType.boolean -> ScalaSimple("Boolean"),
     // same as schema's document type param
     SimpleType.number -> ScalaSimple(numeric.zero.getClass.getSimpleName),
