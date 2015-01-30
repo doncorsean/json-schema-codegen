@@ -199,7 +199,10 @@ trait CodeGen extends Naming {
 
   def genPropertyType(t: ScalaType): String = {
     t match {
-      case a: ScalaArray => if (a.unique) s"Set[${a.nested.identifier}]" else s"List[${a.nested.identifier}]"
+      case a: ScalaArray =>
+        val nestedType = genPropertyType(a.nested)
+        if (a.unique) s"Set[$nestedType]" else s"List[$nestedType]"
+      case a: ScalaEnum => a.identifier + ".Value"
       case a: ScalaType => a.identifier
     }
   }
