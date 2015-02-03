@@ -76,7 +76,7 @@ class ScalaModelGeneratorTest extends FlatSpec  with Matchers  {
         | "id": "http://some/path#/product",
         |"type":"object"
         |}
-      """.stripMargin).map(_.toString) shouldBe Success("Product")
+      """.stripMargin).map(_.toString) shouldBe Success("path.Product")
   }
 
   it should "create type with members from properties" in {
@@ -142,7 +142,7 @@ class ScalaModelGeneratorTest extends FlatSpec  with Matchers  {
         |}
       """.stripMargin).map(_.asInstanceOf[ScalaClass].properties.map(p => (p.name, p.toString))) shouldBe Success(
       List(
-        ("a", "Typea")
+        ("a", "product.definitions.Typea")
       )
     )
   }
@@ -168,7 +168,7 @@ class ScalaModelGeneratorTest extends FlatSpec  with Matchers  {
         |}
       """.stripMargin).map(_.asInstanceOf[ScalaClass].properties.map(p => (p.name, p.toString))) shouldBe Success(
       List(
-        ("a", "A")
+        ("a", "product.definitions.Typea")
       )
     )
   }
@@ -177,7 +177,7 @@ class ScalaModelGeneratorTest extends FlatSpec  with Matchers  {
     parse(
       """
         |{
-        | "id": "product",
+        |"id": "product",
         |"type":"object",
         |"properties": {
         |"a":{"$ref": "#/definitions/typea"},
@@ -195,8 +195,8 @@ class ScalaModelGeneratorTest extends FlatSpec  with Matchers  {
         |}
       """.stripMargin).map(_.asInstanceOf[ScalaClass].properties.map(p => (p.name, p.toString))) shouldBe Success(
       List(
-        ("a", "A"),
-        ("b", "A")
+        ("a", "product.definitions.Typea"),
+        ("b", "product.definitions.Typea")
       )
     )
     parse(
@@ -221,8 +221,8 @@ class ScalaModelGeneratorTest extends FlatSpec  with Matchers  {
         |}
       """.stripMargin).map(_.asInstanceOf[ScalaClass].properties.map(p => (p.name, p.toString))) shouldBe Success(
       List(
-        ("a", "Typea"),
-        ("b", "Typea")
+        ("a", "product.definitions.Typea"),
+        ("b", "product.definitions.Typea")
       )
     )
   }

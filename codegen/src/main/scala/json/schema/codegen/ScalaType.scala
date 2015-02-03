@@ -9,7 +9,7 @@ case class ScalaTypeProperty(name: String, required: Boolean, isa: ScalaType) {
 sealed trait ScalaType {
   val scope: String
   val identifier: String
-  override def toString = scope + "." + identifier
+  override def toString = scope.isEmpty ? identifier | (scope + "." + identifier)
 }
 
 sealed case class ScalaSimple(scope: String, identifier: String) extends ScalaType
