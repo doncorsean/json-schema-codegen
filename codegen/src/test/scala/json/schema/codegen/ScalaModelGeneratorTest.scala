@@ -10,6 +10,7 @@ class ScalaModelGeneratorTest extends FlatSpec  with Matchers  {
 
 
   def parse(s: String): Validation[String, ScalaType] = JsonSchemaParser.parse(s).validation.flatMap(ScalaModelGenerator(_)).map(_.head)
+  def parseAll(s: String): Validation[String, Set[ScalaType]] = JsonSchemaParser.parse(s).validation.flatMap(ScalaModelGenerator(_))
 
   ScalaModelGenerator.getClass.getName should "convert simple types to Scala types" in {
     parse(
@@ -40,7 +41,7 @@ class ScalaModelGeneratorTest extends FlatSpec  with Matchers  {
         |{"type":"string",
         |"format":"uri"
         |}
-      """.stripMargin).map(_.identifier) shouldBe Success("java.net.URI")
+      """.stripMargin).map(_.identifier) shouldBe Success("URI")
   }
 
   it should "convert array of unique items to Scala Set" in {
@@ -112,9 +113,9 @@ class ScalaModelGeneratorTest extends FlatSpec  with Matchers  {
         |},
         |"required":["a"]
         |}
-      """.stripMargin).map(_.asInstanceOf[ScalaClass].properties.map(p => (p.name, p.toString))) shouldBe Success(
+      """.stripMargin).map(_.asInstanceOf[ScalaClass].properties.map(p => (p.name, p.toString, p.isa.scope))) shouldBe Success(
       List(
-        ("a", "String")
+        ("a", "String", "")
       )
     )
   }
@@ -273,6 +274,28 @@ class ScalaModelGeneratorTest extends FlatSpec  with Matchers  {
         "Typea"
       )
     )
+  }
+
+  it should "preserve scope of referenced types" in {
+    val models: Validation[String, Set[ScalaType]] =parseAll(
+      """
+        |{
+        |"id": "product",
+        |"type":"object",
+        |"properties":{
+        | "typea":{
+        |   "$ref":"nested-schema-entity"
+        |  }
+        | },
+        | "schema2": {
+        |   "id": "nested-schema-entity",
+        |   "type":"object"
+        | }
+        |}
+      """.stripMargin)
+    models.map(_.size) shouldBe Success(2)
+    models.map(_.find(_.identifier =="Product").map(_.scope)) shouldBe Success(Some(""))
+    models.map(_.find(_.identifier =="Entity").map(_.scope)) shouldBe Success(Some("nested.schema"))
   }
 
 }

@@ -1,13 +1,11 @@
 package json.schema.codegen
 
-import java.io.File
+import java.io.{FilenameFilter, File}
 import java.nio.file.Path
 
-import json.schema.parser.{SchemaDocument, JsonSchemaParser}
-import json.source.JsonSource
+import json.schema.parser.JsonSchemaParser
 
-import scalaz.Scalaz._
-
+import scalaz.syntax.std.all._
 
 object CodeGenerator extends CodeGen {
 
@@ -19,7 +17,11 @@ object CodeGenerator extends CodeGen {
       source <- oargs(0).map(new File(_)).toSuccess("json-schema is required")
       targetDir <- oargs(1).map(new File(_)).toSuccess("target folder is required")
       genRoot: Path = targetDir.toPath
-      generator = if (true) gen(JsonSchemaParser, source)(_) else gen(new JsonSchemaParser[Float], source)(_)
+      sources: Seq[File] = if (source.isDirectory) source.listFiles(new FilenameFilter {
+        override def accept(dir: File, name: String): Boolean = name.endsWith(".json")
+      })
+      else Seq(source)
+      generator = if (true) gen(JsonSchemaParser, sources)(_) else gen(new JsonSchemaParser[Float], sources)(_)
       results <- generator(genRoot)
     } yield results
 

@@ -39,18 +39,17 @@ object Plugin extends sbt.AutoPlugin {
           val cachedFun = FileFunction.cached(s.cacheDirectory / "json-schema",
             FilesInfo.lastModified, /* inStyle */
             FilesInfo.exists) /* outStyle */ {
-            (in: Set[File]) =>
+            (sources: Set[File]) =>
 
-              in.flatMap {
-                source =>
-                  val genRoot: Path = dir.toPath
-                  log.info(s"Generating code using $source in $genRoot")
-                  val generator = if (true) codegen.gen(JsonSchemaParser, source)(_) else codegen.gen(new JsonSchemaParser[Float], source)(_)
-                  generator(genRoot).fold(
-                    e => throw new IllegalArgumentException(s"Failed code generation in $source: $e "),
-                    p => p.map(_.toFile)
-                  ).toSet
-              }
+              val genRoot: Path = dir.toPath
+
+              log.info(s"Generating code using $sources in $genRoot")
+              val generator = if (true) codegen.gen(JsonSchemaParser, sources.toSeq)(_) else codegen.gen(new JsonSchemaParser[Float], sources.toSeq)(_)
+              generator(genRoot).fold(
+                e => throw new IllegalArgumentException(s"Failed code generation in $sources: $e "),
+                p => p.map(_.toFile)
+              ).toSet
+
           }
 
           // track all source folders under dart, except "build", since it is modified for each build

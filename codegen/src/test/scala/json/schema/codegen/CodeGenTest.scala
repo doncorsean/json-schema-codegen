@@ -12,7 +12,7 @@ class CodeGenTest extends FlatSpec with Matchers with CodeGen {
   def parse(s: String): Validation[String, Set[ScalaType]] = JsonSchemaParser.parse(s).validation.flatMap(ScalaModelGenerator(_))
 
   def gen(s: String): Validation[String, String] = parse(s) map {
-    ts => ts.map(genType).mkString("\n").trim
+    ts => ts.map(genTypeDeclaration).mkString("\n").trim
   }
 
   "CodeGen" should "generate type with optional properties" in {
@@ -62,7 +62,7 @@ class CodeGenTest extends FlatSpec with Matchers with CodeGen {
            |
            |}
          """.stripMargin) shouldBe Success( """
-                                              |case class Product(a:List[Nested], b:Option[List[Double]])
+                                              |case class Product(a:List[product.definitions.Nested], b:Option[List[Double]])
                                               |case class Nested()
                                               | """.stripMargin.trim)
   }
@@ -111,7 +111,7 @@ class CodeGenTest extends FlatSpec with Matchers with CodeGen {
       """.stripMargin) shouldBe
       Success(
         """
-          |case class Product(_additional:Option[Map[String, Nested]])
+          |case class Product(_additional:Option[Map[String, product.definitions.Nested]])
           |case class Nested()
           | """.stripMargin.trim)
   }

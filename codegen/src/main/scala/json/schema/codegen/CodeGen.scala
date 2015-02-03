@@ -1,43 +1,50 @@
 package json.schema.codegen
 
 import java.io.File
-import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, StandardOpenOption}
-
 import json.schema.parser.{JsonSchemaParser, SchemaDocument}
 import json.source.JsonSource
 import scala.util.control.NonFatal
-import scalaz.Validation
+import scalaz.Leibniz.===
+import scalaz.Leibniz
 
 
 trait CodeGen extends Naming {
+  type SValidation[T] = scalaz.Validation[String, T]
 
   import scalaz.Scalaz._
 
+  val predefinedPackageCodec  = "json.schema.codegen.predefined"
+  
   val addPropName = "_additional"
 
-  def generateFile(scope: URI, fileName: String, outputDir: Path)(content: Option[String] => Validation[String, String]): Validation[String, Seq[Path]] = {
-
-    val codePackage: String = packageName(scope)
+  def generateFile(codePackage: String, fileName: String, outputDir: Path)(content: Option[String] => SValidation[String]): SValidation[List[Path]] = {
 
     try {
 
-      val packageDir = codePackage.replaceAll("\\.", File.separator)
-
-      // create package structure
-      val fileDir: Path = outputDir.resolve(packageDir)
-
-      if (!fileDir.toFile.exists())
-        Files.createDirectories(fileDir)
-
       content(codePackage.some.noneIfEmpty) map {
         fileContent =>
-          val generateAbsoluteFile: Path = fileDir.resolve(fileName)
-          Files.deleteIfExists(generateAbsoluteFile)
-          Seq(
-            Files.write(generateAbsoluteFile, fileContent.getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE_NEW)
-          )
+
+          if (fileContent.trim.isEmpty)
+            Nil
+          else {
+
+            val packageDir = codePackage.replaceAll("\\.", File.separator)
+
+            // create package structure
+            val fileDir: Path = outputDir.resolve(packageDir)
+
+            if (!fileDir.toFile.exists())
+              Files.createDirectories(fileDir)
+
+            val generateAbsoluteFile: Path = fileDir.resolve(fileName)
+            Files.deleteIfExists(generateAbsoluteFile)
+            List(
+              Files.write(generateAbsoluteFile, fileContent.getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE_NEW)
+            )
+
+          }
       }
 
     } catch {
@@ -46,103 +53,146 @@ trait CodeGen extends Naming {
 
   }
 
-  def generateCodec(ts: Iterable[ScalaType], scope: URI, outputDir: Path): Validation[String, Seq[Path]] = {
-    val codecClassName: String = className(scope) + "Codec"
-    val fileName: String = codecClassName + ".scala"
+  def generateCodec(outputDir: Path): SValidation[List[Path]] = {
+    val codecClassName: String = "Codecs"
+    val fileName: String = codecClassName.toLowerCase + ".scala"
+    generateFile(predefinedPackageCodec, fileName, outputDir) {
+      packageName =>
+
+        val codecs= List(
+          genCodecURI(),
+          genCodecInetAddress("4"),
+          genCodecInetAddress("6"),
+          genCodecDate()
+        ).filter(!_.trim.isEmpty).mkString("\n")
+  
+        if (codecs.isEmpty)
+          "".success
+        else {
+          val packageDecl = packageName.map(p => s"package $p").getOrElse("")
+          s"""
+             |$packageDecl
+              |
+              |import argonaut._, Argonaut._
+              |
+              |trait $codecClassName {
+              |$codecs
+              |}
+              |
+              |object $codecClassName extends $codecClassName
+          """.stripMargin.success
+        }
+
+    }
+
+  }
+  
+  def generateCodec(ts: Iterable[ScalaType], scope: String, outputDir: Path): SValidation[List[Path]] = {
+    val codecClassName: String = "Codecs"
+    val fileName: String = codecClassName.toLowerCase + ".scala"
     generateFile(scope, fileName, outputDir) {
       packageName =>
 
         val codecs = ts.map {
-          case t: ScalaClass => genCodec(t)
-          case t: ScalaEnum => genCodec(t)
-          case ScalaSimple("java.net.URI") => genCodecURI()
-          case ScalaSimple("java.net.Inet4Address") => genCodecInetAddress("4")
-          case ScalaSimple("java.net.Inet6Address") => genCodecInetAddress("6")
-          case ScalaSimple("java.util.Date") => genCodecDate()
+          case t: ScalaClass => genCodecClass(t)
+          case t: ScalaEnum => genCodecEnum(t)
+          case ScalaSimple(_, "java.net.URI") => genCodecURI()
+          case ScalaSimple(_, "java.net.Inet4Address") => genCodecInetAddress("4")
+          case ScalaSimple(_, "java.net.Inet6Address") => genCodecInetAddress("6")
+          case ScalaSimple(_, "java.util.Date") => genCodecDate()
           case _ => ""
-        }.mkString("\n")
+        }.filter(!_.trim.isEmpty).mkString("\n")
 
-
-        val packageDecl = packageName.map(p => s"package $p").getOrElse("")
-        s"""
-         |$packageDecl
-         |
-         |import argonaut._, Argonaut._
-         |
-         |trait $codecClassName {
-         |$codecs
-         |}
-         |
-         |object $codecClassName extends $codecClassName
-        """.stripMargin.success
+        if (codecs.isEmpty)
+          "".success
+        else {
+          val packageDecl = packageName.map(p => s"package $p").getOrElse("")
+          s"""
+          |$packageDecl
+          |
+          |import argonaut._, Argonaut._
+          |
+          |trait $codecClassName extends $predefinedPackageCodec.Codecs {
+          |$codecs
+          |}
+          |
+          |object $codecClassName extends $codecClassName
+          """.stripMargin.success
+        }
 
     }
 
   }
 
-  def generateModel(ts: Iterable[ScalaType], scope: URI, outputDir: Path): Validation[String, Seq[Path]] = {
-    val fileName: String = className(scope) + ".scala"
+  def generateModel(ts: Iterable[ScalaType], scope: String, outputDir: Path): SValidation[List[Path]] = {
+    val fileName: String = "model.scala"
     generateFile(scope, fileName, outputDir) {
       packageName =>
 
         val packageDecl = packageName.map(p => s"package $p\n\n").getOrElse("")
-        ts.map(genType).mkString(
-          packageDecl,
-          "\n\n", ""
-        ).success
+        val modelDecl = ts.map(genTypeDeclaration).filter(!_.trim.isEmpty)
+        if (modelDecl.isEmpty)
+          "".success
+        else
+          modelDecl.mkString(
+            packageDecl,
+            "\n\n", ""
+          ).success
 
     }
   }
 
-  def genCodec(c: ScalaClass): String = {
+  def genCodecClass(c: ScalaClass): String = {
     val propNames = c.properties.map(p => '"' + p.name + '"').mkString(", ")
     val className = c.identifier
+
     c.additionalNested match {
       case None =>
         s"""
-       |  implicit def ${className}Codec: CodecJson[$className]=casecodec${c.properties.length}($className.apply, $className.unapply)($propNames)
+           |implicit def ${className}Codec: CodecJson[$className]=casecodec${c.properties.length}($className.apply, $className.unapply)($propNames)
      """.stripMargin
       case Some(additionalType) =>
-        val addClassName = additionalType.identifier
+        val addClassReference = genPropertyType(additionalType)
         val addPropNames = propNames + (propNames.isEmpty ? "" | ", ") + '"' + addPropName + '"'
         s"""
-       |    private def ${className}SimpleCodec: CodecJson[$className] = casecodec${c.properties.length + 1}($className.apply, $className.unapply)($addPropNames)
-       |
-       |    implicit def ${className}Codec: CodecJson[$className] = CodecJson.derived(EncodeJson {
-       |      v =>
-       |        val j = ${className}SimpleCodec.encode(v)
-       |        val nj = j.field("$addPropName").fold(j)(a => j.deepmerge(a))
-       |        nj.hcursor.downField("$addPropName").deleteGoParent.focus.getOrElse(nj)
-       |    }, DecodeJson {
-       |      c =>
-       |        val md: DecodeJson[Option[Map[String, $addClassName]]] = implicitly
-       |        val od: DecodeJson[$className] = ${className}SimpleCodec
-       |        for {
-       |          o <- od.decode(c)
-       |          withoutProps = List($propNames).foldLeft(c)((c, f) => c.downField(f).deleteGoParent.hcursor.getOrElse(c))
-       |          m <- md.decode(withoutProps)
-       |        } yield o.copy($addPropName = m)
-       |    })
-       |
+        |  private def ${className}SimpleCodec: CodecJson[$className] = casecodec${c.properties.length + 1}($className.apply, $className.unapply)($addPropNames)
+        |
+        |  implicit def ${className}Codec: CodecJson[$className] = CodecJson.derived(EncodeJson {
+        |    v =>
+        |      val j = ${className}SimpleCodec.encode(v)
+        |      val nj = j.field("$addPropName").fold(j)(a => j.deepmerge(a))
+        |      nj.hcursor.downField("$addPropName").deleteGoParent.focus.getOrElse(nj)
+        |  }, DecodeJson {
+        |    c =>
+        |      val md: DecodeJson[Option[Map[String, $addClassReference]]] = implicitly
+        |      val od: DecodeJson[$className] = ${className}SimpleCodec
+        |      for {
+        |        o <- od.decode(c)
+        |        withoutProps = List($propNames).foldLeft(c)((c, f) => c.downField(f).deleteGoParent.hcursor.getOrElse(c))
+        |        m <- md.decode(withoutProps)
+        |      } yield o.copy($addPropName = m)
+        |  })
        """.stripMargin
     }
   }
 
-  def genCodec(c: ScalaEnum): String = {
-    val className = c.identifier
+  def genCodecEnum(c: ScalaEnum): String = {
+    val enumTypeName = c.identifier
+    val enumNameReference = genPropertyType(c)
+    val nestedTypeReference = genPropertyType(c.nested)
     s"""
-       |  implicit def ${className}Codec: CodecJson[$className.Value] = CodecJson[$className.Value]((v: $className.Value) => v.${if (c.nested.identifier == "String") "toString" else "id"}.asJson, (j: HCursor) => j.as[${c.nested.identifier}].flatMap {
-       |    s: ${c.nested.identifier} =>
-       |      try{
-       |        DecodeResult.ok(${if (c.nested.identifier == "String") className + ".withName" else className}(s))
-       |      } catch {
-       |        case e:NoSuchElementException => DecodeResult.fail("$className", j.history)
-       |      }
-       |  })
+    |implicit def ${enumTypeName}Codec: CodecJson[$enumNameReference] = CodecJson[$enumNameReference]((v: $enumNameReference) => v.${if (nestedTypeReference == "String") "toString" else "id"}.asJson, (j: HCursor) => j.as[$nestedTypeReference].flatMap {
+    |  s: $nestedTypeReference =>
+    |    try{
+    |      DecodeResult.ok(${if (c.nested.identifier == "String") enumTypeName + ".withName" else enumTypeName}(s))
+    |    } catch {
+    |      case e:NoSuchElementException => DecodeResult.fail("$enumTypeName", j.history)
+    |    }
+    |})
      """.stripMargin
   }
 
-  def genCodecURI() =
+  def genCodecURI(): String =
     """
       |  implicit def URICodec: CodecJson[java.net.URI] = CodecJson.derived(
       |    EncodeJson(v => jString(v.toString)),
@@ -160,50 +210,53 @@ trait CodeGen extends Naming {
       |    })
     """.stripMargin
 
-  def genCodecDate() =
+  def genCodecDate(): String =
     s"""
-      |  private def isoDate = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX")
-      |  implicit def DateCodec: CodecJson[java.util.Date] = CodecJson.derived(
-      |    EncodeJson(v => jString(isoDate.format(v))),
-      |    StringDecodeJson.flatMap {
-      |      time =>
-      |        DecodeJson(
-      |          j => {
-      |            try {
-      |              DecodeResult.ok(isoDate.parse(time))
-      |            } catch {
-      |              case e: NoSuchElementException => DecodeResult.fail("Inet6Address", j.history)
-      |            }
-      |          }
-      |        )
-      |    })
+       |private def isoDate = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX")
+       |implicit def DateCodec: CodecJson[java.util.Date] = CodecJson.derived(
+       |  EncodeJson(v => jString(isoDate.format(v))),
+       |  StringDecodeJson.flatMap {
+       |    time =>
+       |      DecodeJson(
+       |        j => {
+       |          try {
+       |            DecodeResult.ok(isoDate.parse(time))
+       |          } catch {
+       |            case e: NoSuchElementException => DecodeResult.fail("Inet6Address", j.history)
+       |          }
+       |        }
+       |      )
+       |  })
     """.stripMargin
 
-  def genCodecInetAddress(v: String) =
+  def genCodecInetAddress(v: String): String =
     s"""
-      |  implicit def Inet${v}AddressCodec: CodecJson[java.net.Inet${v}Address] = CodecJson.derived(
-      |    EncodeJson(v => jString(v.toString.substring(1))),
-      |    StringDecodeJson.flatMap {
-      |      addr =>
-      |        DecodeJson(
-      |          j => {
-      |            try {
-      |              DecodeResult.ok(java.net.InetAddress.getByName(addr).asInstanceOf[java.net.Inet${v}Address])
-      |            } catch {
-      |              case e: NoSuchElementException => DecodeResult.fail("Inet${v}Address", j.history)
-      |            }
+      |implicit def Inet${v}AddressCodec: CodecJson[java.net.Inet${v}Address] = CodecJson.derived(
+      |  EncodeJson(v => jString(v.toString.substring(1))),
+      |  StringDecodeJson.flatMap {
+      |    addr =>
+      |      DecodeJson(
+      |        j => {
+      |          try {
+      |            DecodeResult.ok(java.net.InetAddress.getByName(addr).asInstanceOf[java.net.Inet${v}Address])
+      |          } catch {
+      |            case e: NoSuchElementException => DecodeResult.fail("Inet${v}Address", j.history)
       |          }
-      |        )
-      |    })
+      |        }
+      |      )
+      |  })
     """.stripMargin
+
+
+  private def withPackageReference(t: ScalaType)(name: => String): String = if (t.scope.isEmpty) name else t.scope + "." + name
 
   def genPropertyType(t: ScalaType): String = {
     t match {
       case a: ScalaArray =>
         val nestedType = genPropertyType(a.nested)
         if (a.unique) s"Set[$nestedType]" else s"List[$nestedType]"
-      case a: ScalaEnum => a.identifier + ".Value"
-      case a: ScalaType => a.identifier
+      case a: ScalaEnum => withPackageReference(a)(a.identifier + ".Value")
+      case a: ScalaType => withPackageReference(a)(a.identifier)
     }
   }
 
@@ -212,7 +265,7 @@ trait CodeGen extends Naming {
     p.required ? t | s"Option[$t]"
   }
 
-  def genType(clazz: ScalaType): String = clazz match {
+  def genTypeDeclaration(clazz: ScalaType): String = clazz match {
     case t: ScalaClass =>
       val properties = t.properties.map {
         p =>
@@ -246,8 +299,8 @@ trait CodeGen extends Naming {
         case _ => ""
       }.filter(_ != "").mkString("\n")
       s"""object ${t.identifier} extends Enumeration {
-         |$valueDeclarations
-         |}""".stripMargin
+                                  |$valueDeclarations
+          |}""".stripMargin
 
     case _ => ""
 
@@ -277,14 +330,32 @@ trait CodeGen extends Naming {
     }
   }
 
-  def gen[N: Numeric, T: JsonSource](jsonParser: JsonSchemaParser[N], source: T)(codeGenTarget: Path) = {
+  private def packageModels(models: Set[ScalaType]): Map[String, Set[ScalaType]] = models.groupBy(_.scope)
+
+
+  def gen[N: Numeric, T: JsonSource](jsonParser: JsonSchemaParser[N], sources: Seq[T])(codeGenTarget: Path) = {
+
+    implicit val ev: ===[SValidation[List[Path]], SValidation[List[Path]]] = Leibniz.refl
+    implicit val evdoc: ===[SValidation[SchemaDocument[N]], SValidation[SchemaDocument[N]]] = Leibniz.refl
+    implicit val evset: ===[SValidation[Set[ScalaType]], SValidation[Set[ScalaType]]] = Leibniz.refl
 
     for {
-      schema: SchemaDocument[N] <- jsonParser.parse(source).validation.withDebug("parsed schema")
-      models: Set[ScalaType] <- ScalaModelGenerator(schema).withDebug("generated object model")
-      modelFiles: Seq[Path] <- generateModel(models, schema.scope, codeGenTarget).withDebug("model files")
-      codecFiles: Seq[Path] <- generateCodec(models, schema.scope, codeGenTarget).withDebug("serializatoin files")
-    } yield (modelFiles ++ codecFiles).withInfo("generated files")
+      schemas: List[SchemaDocument[N]] <- sources.map( source => jsonParser.parse(source).validation.withDebug("parsed schema")).toList.sequence
+      models: List[Set[ScalaType]] <- schemas.map ( schema => ScalaModelGenerator(schema).withDebug("generated object model")).toList.sequence
+      modelsByPackage: Map[String, Set[ScalaType]] = packageModels(models.flatMap(_.toList).toSet)
+      modelFiles <- modelsByPackage.map {
+        case (packageName, packageModels) =>
+          generateModel(packageModels, packageName, codeGenTarget).withDebug("model files")
+      }.toList.sequence
+      codecFiles <- modelsByPackage.map {
+        case (packageName, packageModels) =>
+          generateCodec(packageModels, packageName, codeGenTarget).withDebug("serializatoin files")
+      }.toList.sequence
+      predefinedCodecs: List[Path] <- generateCodec(codeGenTarget).withDebug("serialization files")
+    } yield {
+      val paths: List[Path] = predefinedCodecs ++ modelFiles.flatten ++ codecFiles.flatten
+      paths.withInfo("generated files")
+    }
 
   }
 

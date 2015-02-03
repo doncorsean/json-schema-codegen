@@ -1,5 +1,7 @@
 package json.schema.codegen
 
+import java.net.URI
+
 import argonaut.Json
 import json.schema.parser.SimpleType._
 import json.schema.parser.{SchemaDocument, SimpleType}
@@ -15,22 +17,24 @@ private class ScalaModelGenerator[N](implicit numeric: Numeric[N]) extends Namin
 
   val types = mutable.Map.empty[Schema, ScalaType]
 
+  val preDefScope = ""
+
   val json2scala: Map[SimpleType, ScalaSimple] = Map(
-    SimpleType.string -> ScalaSimple("String"),
-    SimpleType.integer -> ScalaSimple("Int"),
-    SimpleType.boolean -> ScalaSimple("Boolean"),
+    SimpleType.string -> ScalaSimple(preDefScope, "String"),
+    SimpleType.integer -> ScalaSimple(preDefScope, "Int"),
+    SimpleType.boolean -> ScalaSimple(preDefScope, "Boolean"),
     // same as schema's document type param
-    SimpleType.number -> ScalaSimple(numeric.zero.getClass.getSimpleName),
-    SimpleType.`null` -> ScalaSimple("Any")
+    SimpleType.number -> ScalaSimple(preDefScope, numeric.zero.getClass.getSimpleName),
+    SimpleType.`null` -> ScalaSimple(preDefScope, "Any")
   )
 
   val format2scala: Map[(ScalaSimple, String), ScalaSimple] = Map(
-    (ScalaSimple("String"), "uri") -> ScalaSimple("java.net.URI"),
-    (ScalaSimple("String"), "date-time") -> ScalaSimple("java.util.Date"),
-    (ScalaSimple("String"), "ipv6") -> ScalaSimple("java.net.Inet6Address"),
-    (ScalaSimple("String"), "ipv4") -> ScalaSimple("java.net.Inet4Address"),
-    (ScalaSimple("String"), "email") -> ScalaSimple("String"),
-    (ScalaSimple("String"), "hostname") -> ScalaSimple("String")
+    (ScalaSimple(preDefScope, "String"), "uri") -> ScalaSimple("java.net", "URI"),
+    (ScalaSimple(preDefScope, "String"), "date-time") -> ScalaSimple("java.util", "Date"),
+    (ScalaSimple(preDefScope, "String"), "ipv6") -> ScalaSimple("java.net", "Inet6Address"),
+    (ScalaSimple(preDefScope, "String"), "ipv4") -> ScalaSimple("java.net", "Inet4Address"),
+    (ScalaSimple(preDefScope, "String"), "email") -> ScalaSimple(preDefScope, "String"),
+    (ScalaSimple(preDefScope, "String"), "hostname") -> ScalaSimple(preDefScope, "String")
   )
 
   def `object`(schema: Schema, name: Option[String]): Validation[ScalaType] = {
@@ -42,16 +46,16 @@ private class ScalaModelGenerator[N](implicit numeric: Numeric[N]) extends Namin
       val schemaClassName: Validation[String] = className(schema, name)
 
       val propertyTypes: List[Validation[ScalaTypeProperty]] = schema.properties.value.map {
-        case (n, prop) =>
+        case (propName, propDefinition) =>
 
-          val existingType = types.get(prop.schema).toSuccess("no type")
+          val existingType = types.get(propDefinition.schema).toSuccess("no type")
 
-          val propDef = existingType orElse any(prop.schema, n.some) map {
+          val propDef = existingType orElse any(propDefinition.schema, propName.some) map {
             t =>
-              ScalaTypeProperty(n, prop.required, t)
+              ScalaTypeProperty(propName, propDefinition.required, t)
           }
 
-          scalaz.Validation.fromEither(propDef.toEither.leftMap(e => s"Type for field ${schemaClassName.toOption}.$n not found: $e"))
+          scalaz.Validation.fromEither(propDef.toEither.leftMap(e => s"Type for field ${schemaClassName.toOption}.$propName not found: $e"))
 
       }.toList
 
@@ -60,7 +64,7 @@ private class ScalaModelGenerator[N](implicit numeric: Numeric[N]) extends Namin
         className <- schemaClassName
         additional <- schema.additionalProperties.toList.map(nested => any(nested, (className + "Additional").some)).sequence.map(_.headOption)
       } yield {
-        val newType = ScalaClass(className, props, additional)
+        val newType = ScalaClass(packageName(schema.scope), className, props, additional)
         types.put(schema, newType)
         newType
       }
@@ -76,7 +80,7 @@ private class ScalaModelGenerator[N](implicit numeric: Numeric[N]) extends Namin
       val genClassName: Option[String] = name.map(_ + "0")
       val arrayDef = any(schema.items.value.head, genClassName) map {
         nested =>
-          ScalaArray(schema.uniqueItems, nested)
+          ScalaArray(packageName(schema.scope), schema.uniqueItems, nested)
       }
 
       scalaz.Validation.fromEither(arrayDef.toEither.leftMap(e => s"Type of Array $genClassName not found: $e"))
@@ -117,7 +121,7 @@ private class ScalaModelGenerator[N](implicit numeric: Numeric[N]) extends Namin
         case SimpleType.boolean => enums.map(_.bool.toSeq).flatten
       }
 
-      val newType = ScalaEnum(className, nestedType, enumNested)
+      val newType = ScalaEnum(packageName(schema.scope), className, nestedType, enumNested)
       types.put(schema, newType)
       newType
     }

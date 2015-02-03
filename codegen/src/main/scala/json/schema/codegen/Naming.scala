@@ -21,7 +21,7 @@ trait Naming {
     (extIndex >= 0) ? s.substring(0, extIndex) | s
   }
 
-   def dotNotation(scope: URI) = {
+  def dotNotation(scope: URI) = {
 
     val fragment: String = scope.getFragment.some.noneIfEmpty.map(s => s.startsWith("/") ? s | "/" + s).getOrElse("")
     // package from URI's fragment, path or host
@@ -29,14 +29,14 @@ trait Naming {
 
     // package from file URI , using only the file name
     val simpleScope: String = try {
-      (scope.getScheme == "file") ? (new File(new URI(scope.getScheme, scope.getHost, scope.getPath, null)).getName + fragment) | fromURI
+      (scope.getScheme == "file") ? (removeExtension(new File(new URI(scope.getScheme, scope.getHost, scope.getPath, null)).getName) + fragment) | fromURI
     } catch {
       case NonFatal(e) => fromURI
     }
 
     val dottedString = removeExtension(simpleScope).map(c => Character.isJavaIdentifierPart(c) ? c | '.').replaceAll("\\.+$", "").replaceAll("^\\.+", "")
 
-    dottedString.split('.').map( s=> escapeKeyword(underscoreToCamel(identifier(s))) )
+    dottedString.split('.').map(s => escapeKeyword(underscoreToCamel(identifier(s))))
   }
 
   def packageName(scope: URI): String = {
@@ -50,9 +50,9 @@ trait Naming {
     escapeKeyword(underscoreToCamel(identifier(name))).capitalize
   }
 
-  def className(schema: SchemaDocument[_], defaultName: Option[String]): scalaz.Validation[String, String] = (
-    schema.id.toSuccess("Schema has no Id").flatMap(identifier).map(underscoreToCamel) orElse defaultName.toSuccess("Default name not given").map(s => underscoreToCamel(identifier(s)))
-    ).map(s => escapeKeyword(s).capitalize)
+  def className(schema: SchemaDocument[_], defaultName: Option[String]): scalaz.Validation[String, String] =
+    schema.id.toSuccess("Schema has no Id").map(className) orElse defaultName.toSuccess("Default name not given").map(
+      name => escapeKeyword(underscoreToCamel(identifier(name))).capitalize)
 
   def memberName(s: String) = escapeKeyword(underscoreToCamel(identifier(s)))
 

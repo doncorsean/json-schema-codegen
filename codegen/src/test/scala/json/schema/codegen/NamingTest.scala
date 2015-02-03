@@ -21,6 +21,8 @@ class NamingTest extends FlatSpec with Matchers with Naming {
     className(new URI("a#/d/e")) shouldBe  "E"
     className(new URI("file:a#d/e")) shouldBe "E"
     className(new URI("file:a#class")) shouldBe "Class"
+    className(new URI("a-b-c")) shouldBe "C"
+    className(new URI("file:/Users/todor/Documents/vox/json-schema-codegen/examples/src/main/json-schema/vox-buy-model-shop-requisition.json#/definitions/line")) shouldBe "Line"
   }
 
 
