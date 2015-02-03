@@ -36,7 +36,7 @@ object Build extends Build {
   lazy val codegen = Project(id = "json-schema-codegen", base = file("codegen"))
     .settings(
       libraryDependencies ++= Seq(
-        "com.voxsupplychain" %% "json-schema-parser" % "0.0.2",
+        "com.voxsupplychain" %% "json-schema-parser" % "0.0.3-SNAPSHOT",
         "io.argonaut" %% "argonaut" % "6.0.4",
         "org.scalatest" % "scalatest_2.10" % "2.2.1" % "test",
         "org.scalacheck" %% "scalacheck" % "1.12.0" % "test"

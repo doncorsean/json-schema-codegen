@@ -9,14 +9,16 @@ import scala.util.control.NonFatal
 import scalaz.Leibniz.===
 import scalaz.Leibniz
 
+import scalaz.std.AllInstances._
+import scalaz.syntax.all._
+import scalaz.syntax.std.all._
 
 trait CodeGen extends Naming {
   type SValidation[T] = scalaz.Validation[String, T]
 
-  import scalaz.Scalaz._
 
   val predefinedPackageCodec  = "json.schema.codegen.predefined"
-  
+
   val addPropName = "_additional"
 
   def generateFile(codePackage: String, fileName: String, outputDir: Path)(content: Option[String] => SValidation[String]): SValidation[List[Path]] = {
@@ -65,7 +67,7 @@ trait CodeGen extends Naming {
           genCodecInetAddress("6"),
           genCodecDate()
         ).filter(!_.trim.isEmpty).mkString("\n")
-  
+
         if (codecs.isEmpty)
           "".success
         else {
@@ -86,20 +88,26 @@ trait CodeGen extends Naming {
     }
 
   }
-  
-  def generateCodec(ts: Iterable[ScalaType], scope: String, outputDir: Path): SValidation[List[Path]] = {
+
+
+
+  def generateCodec(ts: Set[ScalaType], scope: String, outputDir: Path): SValidation[List[Path]] = {
     val codecClassName: String = "Codecs"
-    val fileName: String = codecClassName.toLowerCase + ".scala"
+    val fileName: String = codecClassName + ".scala"
+
+    val formatTypes: Set[ScalaType] =ScalaModelGenerator.format2scala.values.toSet
+
+    def codecPackage(t: ScalaType) = formatTypes.contains(t) ?  (predefinedPackageCodec + "." +  codecClassName) | withPackageReference(t)(codecClassName)
+
     generateFile(scope, fileName, outputDir) {
       packageName =>
+
+        val referencedTypes = ts.flatMap( _.referenced).filter(t => !t.scope.isEmpty && t.scope != scope)
+        val referencedCodes = referencedTypes.isEmpty ? "" | referencedTypes.map( codecPackage ).toSet.mkString(" extends ", " with ", "")
 
         val codecs = ts.map {
           case t: ScalaClass => genCodecClass(t)
           case t: ScalaEnum => genCodecEnum(t)
-          case ScalaSimple(_, "java.net.URI") => genCodecURI()
-          case ScalaSimple(_, "java.net.Inet4Address") => genCodecInetAddress("4")
-          case ScalaSimple(_, "java.net.Inet6Address") => genCodecInetAddress("6")
-          case ScalaSimple(_, "java.util.Date") => genCodecDate()
           case _ => ""
         }.filter(!_.trim.isEmpty).mkString("\n")
 
@@ -112,7 +120,7 @@ trait CodeGen extends Naming {
           |
           |import argonaut._, Argonaut._
           |
-          |trait $codecClassName extends $predefinedPackageCodec.Codecs {
+          |trait $codecClassName  $referencedCodes {
           |$codecs
           |}
           |
@@ -124,7 +132,7 @@ trait CodeGen extends Naming {
 
   }
 
-  def generateModel(ts: Iterable[ScalaType], scope: String, outputDir: Path): SValidation[List[Path]] = {
+  def generateModel(ts: Set[ScalaType], scope: String, outputDir: Path): SValidation[List[Path]] = {
     val fileName: String = "model.scala"
     generateFile(scope, fileName, outputDir) {
       packageName =>

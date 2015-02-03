@@ -17,7 +17,6 @@ private class ScalaModelGenerator[N](implicit numeric: Numeric[N]) extends Namin
 
   val types = mutable.Map.empty[Schema, ScalaType]
 
-  val preDefScope = ""
 
   val json2scala: Map[SimpleType, ScalaSimple] = Map(
     SimpleType.string -> ScalaSimple(preDefScope, "String"),
@@ -28,14 +27,6 @@ private class ScalaModelGenerator[N](implicit numeric: Numeric[N]) extends Namin
     SimpleType.`null` -> ScalaSimple(preDefScope, "Any")
   )
 
-  val format2scala: Map[(ScalaSimple, String), ScalaSimple] = Map(
-    (ScalaSimple(preDefScope, "String"), "uri") -> ScalaSimple("java.net", "URI"),
-    (ScalaSimple(preDefScope, "String"), "date-time") -> ScalaSimple("java.util", "Date"),
-    (ScalaSimple(preDefScope, "String"), "ipv6") -> ScalaSimple("java.net", "Inet6Address"),
-    (ScalaSimple(preDefScope, "String"), "ipv4") -> ScalaSimple("java.net", "Inet4Address"),
-    (ScalaSimple(preDefScope, "String"), "email") -> ScalaSimple(preDefScope, "String"),
-    (ScalaSimple(preDefScope, "String"), "hostname") -> ScalaSimple(preDefScope, "String")
-  )
 
   def `object`(schema: Schema, name: Option[String]): Validation[ScalaType] = {
 
@@ -64,7 +55,7 @@ private class ScalaModelGenerator[N](implicit numeric: Numeric[N]) extends Namin
         className <- schemaClassName
         additional <- schema.additionalProperties.toList.map(nested => any(nested, (className + "Additional").some)).sequence.map(_.headOption)
       } yield {
-        val newType = ScalaClass(packageName(schema.scope), className, props, additional)
+        val newType = ScalaClass(packageName(schema.id.getOrElse(schema.scope)), className, props, additional)
         types.put(schema, newType)
         newType
       }
@@ -80,7 +71,7 @@ private class ScalaModelGenerator[N](implicit numeric: Numeric[N]) extends Namin
       val genClassName: Option[String] = name.map(_ + "0")
       val arrayDef = any(schema.items.value.head, genClassName) map {
         nested =>
-          ScalaArray(packageName(schema.scope), schema.uniqueItems, nested)
+          ScalaArray(packageName(schema.id.getOrElse(schema.scope)), schema.uniqueItems, nested)
       }
 
       scalaz.Validation.fromEither(arrayDef.toEither.leftMap(e => s"Type of Array $genClassName not found: $e"))
@@ -139,6 +130,18 @@ private class ScalaModelGenerator[N](implicit numeric: Numeric[N]) extends Namin
 }
 
 object ScalaModelGenerator {
+
+
+  val preDefScope = ""
+
+  val format2scala: Map[(ScalaSimple, String), ScalaSimple] = Map(
+    (ScalaSimple(preDefScope, "String"), "uri") -> ScalaSimple("java.net", "URI"),
+    (ScalaSimple(preDefScope, "String"), "date-time") -> ScalaSimple("java.util", "Date"),
+    (ScalaSimple(preDefScope, "String"), "ipv6") -> ScalaSimple("java.net", "Inet6Address"),
+    (ScalaSimple(preDefScope, "String"), "ipv4") -> ScalaSimple("java.net", "Inet4Address"),
+    (ScalaSimple(preDefScope, "String"), "email") -> ScalaSimple(preDefScope, "String"),
+    (ScalaSimple(preDefScope, "String"), "hostname") -> ScalaSimple(preDefScope, "String")
+  )
 
   type Validation[T] = scalaz.Validation[String, T]
 
