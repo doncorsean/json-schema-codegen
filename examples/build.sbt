@@ -1,10 +1,8 @@
-import json.schema.codegen.Plugin
-
 name := "json-schema-codegen-examples"
 
-enablePlugins(Plugin)
+enablePlugins(json.schema.codegen.Plugin)
 
-Plugin.projectSettings
+json.schema.codegen.Plugin.projectSettings
 
 libraryDependencies ++= Seq(
   "io.argonaut" %% "argonaut" % "6.0.4",
