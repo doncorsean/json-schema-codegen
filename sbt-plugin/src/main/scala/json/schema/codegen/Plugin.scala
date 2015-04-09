@@ -9,22 +9,31 @@ import sbt.{Def, _}
 
 object Plugin extends sbt.AutoPlugin {
 
+  override def trigger = allRequirements
 
-  object Keys {
-    val jsonSchemaSourceFolder = settingKey[File]("folder for the Json-Schema")
+
+  object autoImport {
+    lazy val jsonCodegen = TaskKey[Seq[File]]("json-schema-codegen", "Generate code from Json-Schema")
   }
 
-  private val jsonCodegen = TaskKey[Seq[File]]("json-schema-codegen", "Generate code from Json-Schema")
+  import autoImport._
 
-  override def projectSettings: Seq[Def.Setting[_]] = Seq(
+  def jsonGenSettings(config: Configuration): Seq[Def.Setting[_]] = Seq(
 
-    Keys.jsonSchemaSourceFolder <<= (sourceDirectory in Compile)(src => src / "json-schema"),
+    sourceDirectory in jsonCodegen in config <<= (sourceDirectory in config)(src => src / "json-schema"),
 
-    sourceGenerators in Compile <+= (jsonCodegen in Compile),
+    sources in jsonCodegen in config <<= (sourceDirectory in jsonCodegen in config) map {
+      (schemaSrc) =>
+        val jsonFiles = (schemaSrc ** GlobFilter("*.json")).get
 
-    jsonCodegen in Compile <<=
-      (sourceManaged in Compile, streams, Keys.jsonSchemaSourceFolder) map {
-        (dir, s, schemaSrc) =>
+        jsonFiles
+    },
+
+    sourceGenerators in config <+= (jsonCodegen in config),
+
+    jsonCodegen in config <<=
+      (sourceManaged in config, streams in config, sources in jsonCodegen in config) map {
+        (dir, s, jsonFiles) =>
 
           val log = s.log("json-schema-codegen")
 
@@ -39,31 +48,27 @@ object Plugin extends sbt.AutoPlugin {
           val cachedFun = FileFunction.cached(s.cacheDirectory / "json-schema",
             FilesInfo.lastModified, /* inStyle */
             FilesInfo.exists) /* outStyle */ {
-            (sources: Set[File]) =>
+            (jsonSchemas: Set[File]) =>
 
               val genRoot: Path = dir.toPath
 
-              log.info(s"Generating code using $sources in $genRoot")
-              val generator = if (true) codegen.gen(JsonSchemaParser, sources.toSeq)(_) else codegen.gen(new JsonSchemaParser[Float], sources.toSeq)(_)
+              log.info(s"Generating code using $jsonSchemas in $genRoot")
+              val generator = if (true) codegen.gen(JsonSchemaParser, jsonSchemas.toSeq)(_) else codegen.gen(new JsonSchemaParser[Float], jsonSchemas.toSeq)(_)
               generator(genRoot).fold(
-                e => throw new IllegalArgumentException(s"Failed code generation in $sources: $e "),
+                e => throw new IllegalArgumentException(s"Failed code generation in $jsonSchemas: $e "),
                 p => p.map(_.toFile)
               ).toSet
 
           }
 
-          // track all source folders under dart, except "build", since it is modified for each build
-          val srcFolders = schemaSrc.listFiles(new FilenameFilter {
-            override def accept(dir: File, name: String): Boolean = name.endsWith(".json")
-          })
+          if (jsonFiles == null || jsonFiles.isEmpty)
+            log.info(s"found no JSON-schema files for generating code")
 
-          if (srcFolders == null)
-            log.info(s"no schema files found in $schemaSrc")
-
-          cachedFun(srcFolders.toSet).toSeq
+          cachedFun(jsonFiles.toSet).toSeq
       }
 
   )
 
+  lazy override val projectSettings: Seq[Def.Setting[_]] = jsonGenSettings(Compile)
 
 }
