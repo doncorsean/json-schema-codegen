@@ -2,6 +2,8 @@ import json.schema.codegen.Plugin
 
 name := "json-schema-codegen-examples"
 
+enablePlugins(Plugin)
+
 Plugin.projectSettings
 
 libraryDependencies ++= Seq(
