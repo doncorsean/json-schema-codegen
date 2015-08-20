@@ -3,12 +3,13 @@ package json.schema.codegen
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, StandardOpenOption}
+
 import json.schema.parser.{JsonSchemaParser, SchemaDocument}
 import json.source.JsonSource
-import scala.util.control.NonFatal
-import scalaz.Leibniz.===
-import scalaz.Leibniz
 
+import scala.util.Try
+import scalaz.Leibniz
+import scalaz.Leibniz.===
 import scalaz.std.AllInstances._
 import scalaz.syntax.all._
 import scalaz.syntax.std.all._
@@ -17,14 +18,13 @@ trait CodeGen extends Naming {
   type SValidation[T] = scalaz.Validation[String, T]
 
 
-  val predefinedPackageCodec  = "json.schema.codegen.predefined"
+  val predefinedPackageCodec = "json.schema.codegen.predefined"
 
   val addPropName = "_additional"
 
   def generateFile(codePackage: String, fileName: String, outputDir: Path)(content: Option[String] => SValidation[String]): SValidation[List[Path]] = {
 
-    try {
-
+    Try {
       content(codePackage.some.noneIfEmpty) map {
         fileContent =>
 
@@ -48,10 +48,9 @@ trait CodeGen extends Naming {
 
           }
       }
-
-    } catch {
-      case NonFatal(e) => e.toString.failure
-    }
+    }.recover {
+      case e: Throwable => e.toString.failure
+    }.get
 
   }
 
@@ -61,7 +60,7 @@ trait CodeGen extends Naming {
     generateFile(predefinedPackageCodec, fileName, outputDir) {
       packageName =>
 
-        val codecs= List(
+        val codecs = List(
           genCodecURI(),
           genCodecInetAddress("4"),
           genCodecInetAddress("6"),
@@ -78,7 +77,7 @@ trait CodeGen extends Naming {
               |import argonaut._, Argonaut._
               |
               |trait $codecClassName {
-              |$codecs
+                                      |$codecs
               |}
               |
               |object $codecClassName extends $codecClassName
@@ -90,20 +89,19 @@ trait CodeGen extends Naming {
   }
 
 
-
   def generateCodec(ts: Set[ScalaType], scope: String, outputDir: Path): SValidation[List[Path]] = {
     val codecClassName: String = "Codecs"
     val fileName: String = codecClassName + ".scala"
 
-    val formatTypes: Set[ScalaType] =ScalaModelGenerator.format2scala.values.toSet
+    val formatTypes: Set[ScalaType] = ScalaModelGenerator.format2scala.values.toSet
 
-    def codecPackage(t: ScalaType) = formatTypes.contains(t) ?  (predefinedPackageCodec + "." +  codecClassName) | withPackageReference(t)(codecClassName)
+    def codecPackage(t: ScalaType) = formatTypes.contains(t) ? (predefinedPackageCodec + "." + codecClassName) | withPackageReference(t)(codecClassName)
 
     generateFile(scope, fileName, outputDir) {
       packageName =>
 
-        val referencedTypes = ts.flatMap( _.referenced).filter(t => !t.scope.isEmpty && t.scope != scope)
-        val referencedCodes = referencedTypes.isEmpty ? "" | referencedTypes.map( codecPackage ).toSet.mkString(" extends ", " with ", "")
+        val referencedTypes = ts.flatMap(_.referenced).filter(t => !t.scope.isEmpty && t.scope != scope)
+        val referencedCodes = referencedTypes.isEmpty ? "" | referencedTypes.map(codecPackage).toSet.mkString(" extends ", " with ", "")
 
         val codecs = ts.map {
           case t: ScalaClass => genCodecClass(t)
@@ -116,15 +114,15 @@ trait CodeGen extends Naming {
         else {
           val packageDecl = packageName.map(p => s"package $p").getOrElse("")
           s"""
-          |$packageDecl
-          |
-          |import argonaut._, Argonaut._
-          |
-          |trait $codecClassName  $referencedCodes {
-          |$codecs
-          |}
-          |
-          |object $codecClassName extends $codecClassName
+             |$packageDecl
+              |
+              |import argonaut._, Argonaut._
+              |
+              |trait $codecClassName  $referencedCodes {
+                                                        |$codecs
+              |}
+              |
+              |object $codecClassName extends $codecClassName
           """.stripMargin.success
         }
 
@@ -163,23 +161,23 @@ trait CodeGen extends Naming {
         val addClassReference = genPropertyType(additionalType)
         val addPropNames = propNames + (propNames.isEmpty ? "" | ", ") + '"' + addPropName + '"'
         s"""
-        |  private def ${className}SimpleCodec: CodecJson[$className] = casecodec${c.properties.length + 1}($className.apply, $className.unapply)($addPropNames)
-        |
-        |  implicit def ${className}Codec: CodecJson[$className] = CodecJson.derived(EncodeJson {
-        |    v =>
-        |      val j = ${className}SimpleCodec.encode(v)
-        |      val nj = j.field("$addPropName").fold(j)(a => j.deepmerge(a))
-        |      nj.hcursor.downField("$addPropName").deleteGoParent.focus.getOrElse(nj)
-        |  }, DecodeJson {
-        |    c =>
-        |      val md: DecodeJson[Option[Map[String, $addClassReference]]] = implicitly
-        |      val od: DecodeJson[$className] = ${className}SimpleCodec
-        |      for {
-        |        o <- od.decode(c)
-        |        withoutProps = List($propNames).foldLeft(c)((c, f) => c.downField(f).deleteGoParent.hcursor.getOrElse(c))
-        |        m <- md.decode(withoutProps)
-        |      } yield o.copy($addPropName = m)
-        |  })
+           |private def ${className}SimpleCodec: CodecJson[$className] = casecodec${c.properties.length + 1}($className.apply, $className.unapply)($addPropNames)
+                                                                                                                                                                  |
+                                                                                                                                                                  |implicit def ${className}Codec: CodecJson[$className] = CodecJson.derived(EncodeJson {
+                                                                                                                                                                                                                         |  v =>
+                                                                                                                                                                                                                         |    val j = ${className}SimpleCodec.encode(v)
+                                                                                                                                                                                                                                                    |    val nj = j.field("$addPropName").fold(j)(a => j.deepmerge(a))
+                                                                                                                                                                                                                                                                                         |    nj.hcursor.downField("$addPropName").deleteGoParent.focus.getOrElse(nj)
+                                                                                                                                                                                                                                                                                                                                  |}, DecodeJson {
+                                                                                                                                                                                                                                                                                                                                  |  c =>
+                                                                                                                                                                                                                                                                                                                                  |    val md: DecodeJson[Option[Map[String, $addClassReference]]] = implicitly
+                                                                                                                                                                                                                                                                                                                                                                                                 |    val od: DecodeJson[$className] = ${className}SimpleCodec
+                                                                                                                                                                                                                                                                                                                                                                                                                                                     |    for {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                     |      o <- od.decode(c)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                     |      withoutProps = List($propNames).foldLeft(c)((c, f) => c.downField(f).deleteGoParent.hcursor.getOrElse(c))
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |      m <- md.decode(withoutProps)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |    } yield o.copy($addPropName = m)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |})
        """.stripMargin
     }
   }
@@ -189,14 +187,14 @@ trait CodeGen extends Naming {
     val enumNameReference = genPropertyType(c)
     val nestedTypeReference = genPropertyType(c.nested)
     s"""
-    |implicit def ${enumTypeName}Codec: CodecJson[$enumNameReference] = CodecJson[$enumNameReference]((v: $enumNameReference) => v.${if (nestedTypeReference == "String") "toString" else "id"}.asJson, (j: HCursor) => j.as[$nestedTypeReference].flatMap {
-    |  s: $nestedTypeReference =>
-    |    try{
-    |      DecodeResult.ok(${if (c.nested.identifier == "String") enumTypeName + ".withName" else enumTypeName}(s))
-    |    } catch {
-    |      case e:NoSuchElementException => DecodeResult.fail("$enumTypeName", j.history)
-    |    }
-    |})
+       |implicit def ${enumTypeName}Codec: CodecJson[$enumNameReference] = CodecJson[$enumNameReference]((v: $enumNameReference) => v.${if (nestedTypeReference == "String") "toString" else "id"}.asJson, (j: HCursor) => j.as[$nestedTypeReference].flatMap {
+                                                                                                                                                                                                                                                      |s: $nestedTypeReference =>
+                                                                                                                                                                                                                                                                                |  try{
+                                                                                                                                                                                                                                                                                |    DecodeResult.ok(${if (c.nested.identifier == "String") enumTypeName + ".withName" else enumTypeName}(s))
+                                                                                                                                                                                                                                                                                                                                                                                           |  } catch {
+                                                                                                                                                                                                                                                                                                                                                                                           |    case e:NoSuchElementException => DecodeResult.fail("$enumTypeName", j.history)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |  }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |})
      """.stripMargin
   }
 
@@ -222,37 +220,37 @@ trait CodeGen extends Naming {
     s"""
        |private def isoDate = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX")
        |implicit def DateCodec: CodecJson[java.util.Date] = CodecJson.derived(
-       |  EncodeJson(v => jString(isoDate.format(v))),
-       |  StringDecodeJson.flatMap {
-       |    time =>
-       |      DecodeJson(
-       |        j => {
-       |          try {
-       |            DecodeResult.ok(isoDate.parse(time))
-       |          } catch {
-       |            case e: NoSuchElementException => DecodeResult.fail("Inet6Address", j.history)
-       |          }
+       |EncodeJson(v => jString(isoDate.format(v))),
+       |StringDecodeJson.flatMap {
+       |  time =>
+       |    DecodeJson(
+       |      j => {
+       |        try {
+       |          DecodeResult.ok(isoDate.parse(time))
+       |        } catch {
+       |          case e: NoSuchElementException => DecodeResult.fail("Inet6Address", j.history)
        |        }
-       |      )
-       |  })
+       |      }
+       |    )
+       |})
     """.stripMargin
 
   def genCodecInetAddress(v: String): String =
     s"""
-      |implicit def Inet${v}AddressCodec: CodecJson[java.net.Inet${v}Address] = CodecJson.derived(
-      |  EncodeJson(v => jString(v.toString.substring(1))),
-      |  StringDecodeJson.flatMap {
-      |    addr =>
-      |      DecodeJson(
-      |        j => {
-      |          try {
-      |            DecodeResult.ok(java.net.InetAddress.getByName(addr).asInstanceOf[java.net.Inet${v}Address])
-      |          } catch {
-      |            case e: NoSuchElementException => DecodeResult.fail("Inet${v}Address", j.history)
-      |          }
-      |        }
-      |      )
-      |  })
+       |implicit def Inet${v}AddressCodec: CodecJson[java.net.Inet${v}Address] = CodecJson.derived(
+                                                                        |EncodeJson(v => jString(v.toString.substring(1))),
+                                                                        |StringDecodeJson.flatMap {
+                                                                        |  addr =>
+                                                                        |    DecodeJson(
+                                                                        |      j => {
+                                                                        |        try {
+                                                                        |          DecodeResult.ok(java.net.InetAddress.getByName(addr).asInstanceOf[java.net.Inet${v}Address])
+                                                                                                                                                                        |        } catch {
+                                                                                                                                                                        |          case e: NoSuchElementException => DecodeResult.fail("Inet${v}Address", j.history)
+                                                                                                                                                                                                                                                  |        }
+                                                                                                                                                                                                                                                  |      }
+                                                                                                                                                                                                                                                  |    )
+                                                                                                                                                                                                                                                  |})
     """.stripMargin
 
 
@@ -348,8 +346,8 @@ trait CodeGen extends Naming {
     implicit val evset: ===[SValidation[Set[ScalaType]], SValidation[Set[ScalaType]]] = Leibniz.refl
 
     for {
-      schemas: List[SchemaDocument[N]] <- sources.map( source => jsonParser.parse(source).validation.withDebug("parsed schema")).toList.sequence
-      models: List[Set[ScalaType]] <- schemas.map ( schema => ScalaModelGenerator(schema).withDebug("generated object model")).toList.sequence
+      schemas: List[SchemaDocument[N]] <- sources.map(source => jsonParser.parse(source).validation.withDebug("parsed schema")).toList.sequence
+      models: List[Set[ScalaType]] <- schemas.map(schema => ScalaModelGenerator(schema).withDebug("generated object model")).sequence
       modelsByPackage: Map[String, Set[ScalaType]] = packageModels(models.flatMap(_.toList).toSet)
       modelFiles <- modelsByPackage.map {
         case (packageName, packageModels) =>

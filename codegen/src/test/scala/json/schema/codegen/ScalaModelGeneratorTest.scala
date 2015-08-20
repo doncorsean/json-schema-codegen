@@ -16,7 +16,7 @@ class ScalaModelGeneratorTest extends FlatSpec  with Matchers  {
     parse(
       """
         |{"type":"integer"}
-      """.stripMargin).map(_.identifier) shouldBe Success("Int")
+      """.stripMargin).map(_.identifier) shouldBe Success("Long")
     parse(
       """
         |{"type":"boolean"}
@@ -25,10 +25,6 @@ class ScalaModelGeneratorTest extends FlatSpec  with Matchers  {
       """
         |{"type":"number"}
       """.stripMargin).map(_.identifier) shouldBe Success("Double")
-    parse(
-      """
-        |{"type":"integer"}
-      """.stripMargin).map(_.identifier) shouldBe Success("Int")
     parse(
       """
         |{"type":"string"}

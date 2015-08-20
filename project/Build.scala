@@ -12,7 +12,7 @@ object Build extends Build {
 
     organization := "com.voxsupplychain",
 
-    scalaVersion := "2.10.4",
+    scalaVersion := "2.10.5",
 
     resolvers += Resolver.url(
       "vox-public-ivy",
@@ -36,7 +36,7 @@ object Build extends Build {
   lazy val codegen = Project(id = "json-schema-codegen", base = file("codegen"))
     .settings(
       libraryDependencies ++= Seq(
-        "com.voxsupplychain" %% "json-schema-parser" % "0.0.5",
+        "com.voxsupplychain" %% "json-schema-parser" % "0.0.6",
         "io.argonaut" %% "argonaut" % "6.0.4",
         "org.scalatest" % "scalatest_2.10" % "2.2.1" % "test",
         "org.scalacheck" %% "scalacheck" % "1.12.0" % "test"

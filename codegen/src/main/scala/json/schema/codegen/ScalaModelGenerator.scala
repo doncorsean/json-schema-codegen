@@ -1,13 +1,10 @@
 package json.schema.codegen
 
-import java.net.URI
-
 import argonaut.Json
 import json.schema.parser.SimpleType._
 import json.schema.parser.{SchemaDocument, SimpleType}
 
 import scala.collection.mutable
-import scalaz.Leibniz
 import scalaz.Scalaz._
 
 private class ScalaModelGenerator[N](implicit numeric: Numeric[N]) extends Naming {
@@ -15,81 +12,74 @@ private class ScalaModelGenerator[N](implicit numeric: Numeric[N]) extends Namin
 
   import json.schema.codegen.ScalaModelGenerator._
 
-  val types = mutable.Map.empty[Schema, ScalaType]
-
+  val definedSchemas = mutable.Map.empty[Schema, ScalaType]
 
   val json2scala: Map[SimpleType, ScalaSimple] = Map(
     SimpleType.string -> ScalaSimple(preDefScope, "String"),
-    SimpleType.integer -> ScalaSimple(preDefScope, "Int"),
+    SimpleType.integer -> ScalaSimple(preDefScope, "Long"),
     SimpleType.boolean -> ScalaSimple(preDefScope, "Boolean"),
     // same as schema's document type param
     SimpleType.number -> ScalaSimple(preDefScope, numeric.zero.getClass.getSimpleName),
     SimpleType.`null` -> ScalaSimple(preDefScope, "Any")
   )
 
-
   def `object`(schema: Schema, name: Option[String]): Validation[ScalaType] = {
 
-    implicit val ev = Leibniz.refl[Validation[ScalaTypeProperty]]
+    schema.obj.toSuccess(s"not object type: ${schema.types}").flatMap {
+      obj =>
+        val schemaClassName: Validation[String] = className(schema, name)
 
-    if (SimpleType.`object` == schema.common.types.headOption.orNull) {
+        val propertyTypes: List[Validation[ScalaTypeProperty]] = obj.properties.value.map {
+          case (propName, propDefinition) =>
 
-      val schemaClassName: Validation[String] = className(schema, name)
+            val existingType = definedSchemas.get(propDefinition.schema).toSuccess("no type")
 
-      val propertyTypes: List[Validation[ScalaTypeProperty]] = schema.properties.value.map {
-        case (propName, propDefinition) =>
+            val propDef = existingType orElse any(propDefinition.schema, propName.some) map {
+              t =>
+                ScalaTypeProperty(propName, propDefinition.required, t)
+            }
 
-          val existingType = types.get(propDefinition.schema).toSuccess("no type")
+            scalaz.Validation.fromEither(propDef.toEither.leftMap(e => s"Type for field ${schemaClassName.toOption}.$propName not found: $e"))
 
-          val propDef = existingType orElse any(propDefinition.schema, propName.some) map {
-            t =>
-              ScalaTypeProperty(propName, propDefinition.required, t)
-          }
+        }.toList
 
-          scalaz.Validation.fromEither(propDef.toEither.leftMap(e => s"Type for field ${schemaClassName.toOption}.$propName not found: $e"))
+        val propTypes: Validation[List[ScalaTypeProperty]] = propertyTypes.sequence
 
-      }.toList
-
-      for {
-        props <- propertyTypes.sequence
-        className <- schemaClassName
-        additional <- schema.additionalProperties.toList.map(nested => any(nested, (className + "Additional").some)).sequence.map(_.headOption)
-      } yield {
-        val newType = ScalaClass(packageName(schema.id.getOrElse(schema.scope)), className, props, additional)
-        types.put(schema, newType)
-        newType
-      }
-
-    } else {
-      s"not object type: ${schema.common.types}".fail
+        for {
+          props <- propTypes
+          className <- schemaClassName
+          additional <- obj.additionalProperties.toList.map(nested => any(nested, (className + "Additional").some))
+            .sequence.map(_.headOption)
+        } yield {
+          val newType = ScalaClass(packageName(schema.id.getOrElse(schema.scope)), className, props, additional)
+          definedSchemas.put(schema, newType)
+          newType.asInstanceOf[ScalaType]
+        }
     }
   }
 
 
-  def array(schema: Schema, name: Option[String]): Validation[ScalaType] = {
-    if (SimpleType.array == schema.common.types.headOption.orNull) {
-      val genClassName: Option[String] = name.map(_ + "0")
-      val arrayDef = any(schema.items.value.head, genClassName) map {
-        nested =>
-          ScalaArray(packageName(schema.id.getOrElse(schema.scope)), schema.uniqueItems, nested)
-      }
+  def array(schema: Schema, name: Option[String]): Validation[ScalaType] =
+    schema.array.toSuccess(s"not array type: ${schema.types}").flatMap {
+      array =>
+        val genClassName: Option[String] = name.map(_ + "0")
+        val arrayDef = any(array.items.value.head, genClassName) map {
+          nested =>
+            ScalaArray(packageName(schema.id.getOrElse(schema.scope)), array.uniqueItems, nested)
+        }
 
-      scalaz.Validation.fromEither(arrayDef.toEither.leftMap(e => s"Type of Array $genClassName not found: $e"))
-
-    } else {
-      s"not array type: ${schema.common.types}".fail
+        scalaz.Validation.fromEither(arrayDef.toEither.leftMap(e => s"Type of Array $genClassName not found: $e"))
     }
-  }
 
   def simple(schema: Schema): Validation[ScalaType] = {
-    schema.common.types.headOption.flatMap(json2scala.get).toSuccess("Type is not simple") map {
+    schema.types.headOption.flatMap(json2scala.get).toSuccess("Type is not simple") map {
       simpleType =>
         // if there is a format, try to find type that corresponds to the format
-        val formatType = schema.common.format.flatMap(format =>
+        val formatType = schema.format.flatMap(format =>
           format2scala.get((simpleType, format.toLowerCase))
         ).getOrElse(simpleType)
 
-        types.put(schema, formatType)
+        definedSchemas.put(schema, formatType)
         formatType
     }
   }
@@ -98,7 +88,7 @@ private class ScalaModelGenerator[N](implicit numeric: Numeric[N]) extends Namin
   def enum(schema: Schema, name: Option[String]): Validation[ScalaType] = {
 
     for {
-      t <- schema.common.types.headOption.toSuccess("Type is required")
+      t <- schema.types.headOption.toSuccess("Type is required")
       className <- className(schema, name)
       enums: Set[Json] <- schema.enums.isEmpty ? "Enum not defined".fail[Set[Json]] | schema.enums.success[String]
       enumNestedSchema = schema.copy(enums = Set.empty)
@@ -113,7 +103,7 @@ private class ScalaModelGenerator[N](implicit numeric: Numeric[N]) extends Namin
       }
 
       val newType = ScalaEnum(packageName(schema.scope), className, nestedType, enumNested)
-      types.put(schema, newType)
+      definedSchemas.put(schema, newType)
       newType
     }
 
@@ -121,7 +111,7 @@ private class ScalaModelGenerator[N](implicit numeric: Numeric[N]) extends Namin
 
 
   def any(schema: Schema, name: Option[String]): Validation[ScalaType] = {
-    if (schema.common.types.length != 1)
+    if (schema.types.length != 1)
       s"One type is required in: $schema".fail
     else
       enum(schema, name) orElse array(schema, name) orElse `object`(schema, name) orElse simple(schema)
@@ -153,7 +143,7 @@ object ScalaModelGenerator {
 
     generator.any(schema, typeName) map {
       t =>
-        (t :: generator.types.values.toList).toSet // to remove duplicate types
+        (t :: generator.definedSchemas.values.toList).toSet // to remove duplicate types
     }
   }
 

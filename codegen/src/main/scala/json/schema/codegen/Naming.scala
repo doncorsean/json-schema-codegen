@@ -16,12 +16,44 @@ trait Naming {
     }
   }
 
-  def removeExtension(s: String) = {
+  def packageName(scope: URI): String = {
+    val dots = dotNotation(scope)
+    dots.take(dots.length - 1).mkString(".")
+  }
+
+  def className(scope: URI): String = {
+    val dots = dotNotation(scope)
+    val name = dots.lastOption.getOrElse(dots.head)
+    escapeReserved(underscoreToCamel(identifier(name))).capitalize
+  }
+
+  def className(schema: SchemaDocument[_], defaultName: Option[String]): scalaz.Validation[String, String] =
+    schema.id.toSuccess("Schema has no Id").map(className) orElse defaultName.toSuccess("Default name not given").map(
+      name => escapeReserved(underscoreToCamel(identifier(name))).capitalize)
+
+  def memberName(s: String) = escapeReserved(underscoreToCamel(identifier(s)))
+
+  protected def identifier(scope: URI): scalaz.Validation[String, String] = {
+    val str = scope.toString
+    val lastSlash: Int = str.lastIndexOf('/')
+    val lastSegment = (lastSlash >= 0) ? str.substring(lastSlash) | str
+    val noExtSegment = removeExtension(lastSegment)
+    identifier(noExtSegment.filter(c => c != '#')).some.noneIfEmpty.toSuccess(s"Unable to extract identifier from $scope")
+  }
+
+  protected def identifier(s: String): String = s.map(c => c.isLetterOrDigit ? c | '_')
+
+  private def underscoreToCamel(name: String): String = "_([a-z\\d])".r.replaceAllIn(name, { m =>
+    m.group(1).toUpperCase
+  })
+
+
+  private def removeExtension(s: String) = {
     val extIndex = s.lastIndexOf('.')
     (extIndex >= 0) ? s.substring(0, extIndex) | s
   }
 
-  def dotNotation(scope: URI) = {
+  private def dotNotation(scope: URI) = {
 
     val fragment: String = scope.getFragment.some.noneIfEmpty.map(s => s.startsWith("/") ? s | "/" + s).getOrElse("")
     // package from URI's fragment, path or host
@@ -36,43 +68,13 @@ trait Naming {
 
     val dottedString = removeExtension(simpleScope).map(c => Character.isJavaIdentifierPart(c) ? c | '.').replaceAll("\\.+$", "").replaceAll("^\\.+", "")
 
-    dottedString.split('.').map(s => escapeKeyword(underscoreToCamel(identifier(s))))
+    dottedString.split('.').map(s => escapeReserved(underscoreToCamel(identifier(s))))
   }
 
-  def packageName(scope: URI): String = {
-    val dots = dotNotation(scope)
-    dots.take(dots.size - 1).mkString(".")
-  }
 
-  def className(scope: URI): String = {
-    val dots = dotNotation(scope)
-    val name = dots.lastOption.getOrElse(dots.head)
-    escapeKeyword(underscoreToCamel(identifier(name))).capitalize
-  }
+  def escapeReserved(s: String) = reservedKeywords.contains(s) ? ('_' + s) | s
 
-  def className(schema: SchemaDocument[_], defaultName: Option[String]): scalaz.Validation[String, String] =
-    schema.id.toSuccess("Schema has no Id").map(className) orElse defaultName.toSuccess("Default name not given").map(
-      name => escapeKeyword(underscoreToCamel(identifier(name))).capitalize)
-
-  def memberName(s: String) = escapeKeyword(underscoreToCamel(identifier(s)))
-
-  def identifier(scope: URI): scalaz.Validation[String, String] = {
-    val str = scope.toString
-    val lastSlash: Int = str.lastIndexOf('/')
-    val lastSegment = (lastSlash >= 0) ? str.substring(lastSlash) | str
-    val noExtSegment = removeExtension(lastSegment)
-    identifier(noExtSegment.filter(c => c != '#')).some.noneIfEmpty.toSuccess(s"Unable to extract identifier from $scope")
-  }
-
-  def identifier(s: String): String = s.map(c => c.isLetterOrDigit ? c | '_')
-
-  def underscoreToCamel(name: String): String = "_([a-z\\d])".r.replaceAllIn(name, { m =>
-    m.group(1).toUpperCase
-  })
-
-  def escapeKeyword(s: String) = keywords.contains(s) ? ('_' + s) | s
-
-  val keywords = Set(
+  val reservedKeywords: Set[String] = Set(
     "abstract", "case", "catch", "class",
     "def", "do", "else", "extends",
     "false", "final", "finally", "for",
