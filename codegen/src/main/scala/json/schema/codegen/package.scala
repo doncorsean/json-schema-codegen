@@ -1,5 +1,14 @@
 package json.schema
 
+import java.nio.file.Path
+
+import json.schema.parser.{JsonSchemaParser, SchemaDocument}
+import json.source.JsonSource
+
+import scalaz.Leibniz
+import scalaz.Leibniz._
+import scalaz.Scalaz._
+
 package object codegen {
 
   type SValidation[T] = scalaz.Validation[String, T]
@@ -31,5 +40,17 @@ package object codegen {
   }
 
   case class LangTypeProperty(name: String, required: Boolean, isa: LangType)
+
+
+  implicit class ParserWrapper[N: Numeric, T: JsonSource](jsonParser: JsonSchemaParser[N]) {
+    implicit val evdoc: ===[SValidation[SchemaDocument[N]], SValidation[SchemaDocument[N]]] = Leibniz.refl
+
+    def parseAll(sources: Seq[T]): SValidation[List[SchemaDocument[N]]] = sources.map(source => jsonParser.parse(source).validation).toList.sequenceU
+  }
+
+
+  trait CodeGen {
+    def apply[N: Numeric](schemas: List[SchemaDocument[N]])(codeGenTarget: Path): SValidation[List[Path]]
+  }
 
 }

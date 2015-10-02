@@ -31,7 +31,7 @@ object Plugin extends sbt.AutoPlugin {
 
         val log = s.log("json-schema-codegen")
 
-        val codegen = new CodeGen {
+        val codegen = new ScalaCodeGen {
           override def debug(s: => String): Unit = log.debug(s)
 
           override def info(s: => String): Unit = log.info(s)
@@ -47,8 +47,14 @@ object Plugin extends sbt.AutoPlugin {
             val genRoot: Path = dir.toPath
 
             log.info(s"Generating code using $jsonSchemas in $genRoot")
-            val generator = if (true) codegen.gen(JsonSchemaParser, jsonSchemas.toSeq)(_) else codegen.gen(new JsonSchemaParser[Float], jsonSchemas.toSeq)(_)
-            generator(genRoot).fold(
+
+            val genFiles = for {
+              schemas <- JsonSchemaParser.parseAll(jsonSchemas.toSeq)
+              result <- codegen(schemas)(genRoot)
+            } yield result
+
+
+            genFiles.fold(
               e => throw new IllegalArgumentException(s"Failed code generation in $jsonSchemas: $e "),
               p => p.map(_.toFile)
             ).toSet

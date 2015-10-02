@@ -5,7 +5,7 @@ import org.scalatest.{FlatSpec, Matchers}
 
 import scalaz.Success
 
-class CodeGenTest extends FlatSpec with Matchers with CodeGen {
+class CodeGenTest extends FlatSpec with Matchers with ScalaCodeGen {
 
 
   def parse(s: String): SValidation[Set[LangType]] = JsonSchemaParser.parse(s).validation.flatMap(ScalaModelGenerator(_))

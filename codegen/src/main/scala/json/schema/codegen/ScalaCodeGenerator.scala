@@ -1,0 +1,42 @@
+package json.schema.codegen
+
+import java.io.{File, FilenameFilter}
+import java.nio.file.Path
+
+import json.schema.parser.JsonSchemaParser
+
+import scalaz.std.AllInstances._
+import scalaz.syntax.all._
+import scalaz.syntax.std.all._
+
+abstract class GeneratorCommand(codegens: List[CodeGen]) {
+
+  val jsonFilesFilter = new FilenameFilter {
+    override def accept(dir: File, name: String): Boolean = name.endsWith(".json")
+  }
+
+  def main(args: Array[String]) {
+
+    val oargs = args.lift
+
+    val result = for {
+      source <- oargs(0).map(new File(_)).toSuccess("json-schema is required")
+      targetDir <- oargs(1).map(new File(_)).toSuccess("target folder is required")
+      genRoot: Path = targetDir.toPath
+      sources: Seq[File] = if (source.isDirectory) source.listFiles(jsonFilesFilter)
+      else Seq(source)
+
+      schemas <- JsonSchemaParser.parseAll(sources)
+      results <- codegens.map(gen => gen(schemas)(genRoot)).sequenceU
+    } yield results
+
+    result.fold({ e =>
+      sys.error(s"Code generation failed with: $e")
+      System.exit(1)
+    }, _ => System.exit(0))
+
+  }
+
+}
+
+object ScalaCodeGenerator extends GeneratorCommand(List(new ScalaCodeGen {}))
