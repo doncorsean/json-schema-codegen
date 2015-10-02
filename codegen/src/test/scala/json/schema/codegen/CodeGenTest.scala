@@ -1,17 +1,16 @@
 package json.schema.codegen
 
 import json.schema.parser.JsonSchemaParser
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}
 
-import scalaz.{Success, Validation}
+import scalaz.Success
 
 class CodeGenTest extends FlatSpec with Matchers with CodeGen {
 
 
-  def parse(s: String): Validation[String, Set[ScalaType]] = JsonSchemaParser.parse(s).validation.flatMap(ScalaModelGenerator(_))
+  def parse(s: String): SValidation[Set[LangType]] = JsonSchemaParser.parse(s).validation.flatMap(ScalaModelGenerator(_))
 
-  def gen(s: String): Validation[String, String] = parse(s) map {
+  def gen(s: String): SValidation[String] = parse(s) map {
     ts => ts.map(genTypeDeclaration).mkString("\n").trim
   }
 
