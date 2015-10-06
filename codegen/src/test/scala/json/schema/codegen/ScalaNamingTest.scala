@@ -4,7 +4,7 @@ import java.net.URI
 
 import org.scalatest.{FlatSpec, Matchers}
 
-class NamingTest extends FlatSpec with Matchers with Naming {
+class ScalaNamingTest extends FlatSpec with Matchers with ScalaNaming {
 
   "Naming" should "name package" in {
     packageName(new URI("http://host/b/c#")) shouldBe "b"

@@ -43,10 +43,7 @@ trait Naming {
 
   protected def identifier(s: String): String = s.map(c => c.isLetterOrDigit ? c | '_')
 
-  private def underscoreToCamel(name: String): String = "_([a-z\\d])".r.replaceAllIn(name, { m =>
-    m.group(1).toUpperCase
-  })
-
+  private def underscoreToCamel(name: String): String = "_([a-z\\d])".r.replaceAllIn(name, _.group(1).toUpperCase)
 
   private def removeExtension(s: String) = {
     val extIndex = s.lastIndexOf('.')
@@ -74,16 +71,6 @@ trait Naming {
 
   def escapeReserved(s: String) = reservedKeywords.contains(s) ? ('_' + s) | s
 
-  val reservedKeywords: Set[String] = Set(
-    "abstract", "case", "catch", "class",
-    "def", "do", "else", "extends",
-    "false", "final", "finally", "for",
-    "forSome", "if", "implicit", "import",
-    "lazy", "match", "new", "null",
-    "object", "override", "package", "private",
-    "protected", "return", "sealed", "super",
-    "this", "throw", "trait", "try",
-    "true", "type", "val", "var",
-    "while", "with", "yield"
-  )
+  val reservedKeywords: Set[String]
+
 }

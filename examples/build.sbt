@@ -8,3 +8,5 @@ libraryDependencies ++= Seq(
   "io.argonaut" %% "argonaut" % "6.0.4",
   "org.scalatest" % "scalatest_2.10" % "2.2.1" % "test"
 )
+
+typeScriptDirectory in Compile := Some(target.value / "typescript")

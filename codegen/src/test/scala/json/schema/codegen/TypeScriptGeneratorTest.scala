@@ -5,16 +5,16 @@ import org.scalatest.{FlatSpec, Matchers}
 
 import scalaz.Success
 
-class CodeGenTest extends FlatSpec with Matchers with ScalaCodeGen {
+class TypeScriptGeneratorTest extends FlatSpec with Matchers with TypeScriptGenerator with ConsoleLogging {
 
 
-  def parse(s: String): SValidation[Set[LangType]] = JsonSchemaParser.parse(s).validation.flatMap(ScalaModelGenerator(_))
+  def parse(s: String): SValidation[Set[LangType]] = JsonSchemaParser.parse(s).validation.flatMap(TypeScriptModelGenerator(_))
 
   def gen(s: String): SValidation[String] = parse(s) map {
     ts => ts.map(genTypeDeclaration).mkString("\n").trim
   }
 
-  "CodeGen" should "generate type with optional properties" in {
+  "TypeScriptGenerator" should "generate type with optional properties" in {
     gen( """
            |{
            | "id": "http://some/product",
@@ -25,7 +25,10 @@ class CodeGenTest extends FlatSpec with Matchers with ScalaCodeGen {
            |},
            |"required":["a"]
            |}
-         """.stripMargin) shouldBe Success( """case class Product(a:String, b:Option[Double])""".stripMargin.trim)
+         """.stripMargin) shouldBe Success( """interface Product {
+                                              |a:string;
+                                              |b?:number;
+                                              |}""".stripMargin.trim)
   }
 
   it should "generate type with array properties" in {
@@ -39,7 +42,10 @@ class CodeGenTest extends FlatSpec with Matchers with ScalaCodeGen {
            |},
            |"required":["a"]
            |}
-         """.stripMargin) shouldBe Success( """case class Product(a:List[String], b:Option[List[Double]])""".stripMargin.trim)
+         """.stripMargin) shouldBe Success( """interface Product {
+                                              |a:string[];
+                                              |b?:number[];
+                                              |}""".stripMargin.trim)
   }
 
   it should "generate type with nested types" in {
@@ -61,8 +67,13 @@ class CodeGenTest extends FlatSpec with Matchers with ScalaCodeGen {
            |
            |}
          """.stripMargin) shouldBe Success( """
-                                              |case class Product(a:List[product.definitions.Nested], b:Option[List[Double]])
-                                              |case class Nested()
+                                              |interface Product {
+                                              |a:product.definitions.Nested[];
+                                              |b?:number[];
+                                              |}
+                                              |interface Nested {
+                                              |
+                                              |}
                                               | """.stripMargin.trim)
   }
 
@@ -73,22 +84,14 @@ class CodeGenTest extends FlatSpec with Matchers with ScalaCodeGen {
            |"type":"string",
            |"enum":["a 1","b"]
            |}
-         """.stripMargin) shouldBe Success( """
-                                              |object Product extends Enumeration {
-                                              |val a1 = Value("a 1")
-                                              |val b = Value("b")
-                                              |}""".stripMargin.trim)
+         """.stripMargin) shouldBe Success( """enum Product {  }""".stripMargin.trim)
     gen( """
            |{
            | "id": "http://some/product",
            |"type":"integer",
            |"enum":[1,2]
            |}
-         """.stripMargin).map(_.replaceAll("\\s", "")) shouldBe Success( """
-                                                                           |object Product extends Enumeration {
-                                                                           |val v1 = Value(1)
-                                                                           |val v2 = Value(2)
-                                                                           |}""".stripMargin.trim.replaceAll("\\s", ""))
+         """.stripMargin) shouldBe Success( """enum Product { v1 = 1, v2 = 2 }""")
   }
 
 
@@ -110,8 +113,12 @@ class CodeGenTest extends FlatSpec with Matchers with ScalaCodeGen {
       """.stripMargin) shouldBe
       Success(
         """
-          |case class Product(_additional:Option[Map[String, product.definitions.Nested]])
-          |case class Nested()
+          |interface Product {
+          |[key: string]: product.definitions.Nested;
+          |}
+          |interface Nested {
+          |
+          |}
           | """.stripMargin.trim)
   }
 

@@ -9,7 +9,7 @@ import scalaz.std.AllInstances._
 import scalaz.syntax.all._
 import scalaz.syntax.std.all._
 
-abstract class GeneratorCommand(codegens: List[CodeGen]) {
+abstract class GeneratorCommand(codegens: List[CodeGenerator]) {
 
   val jsonFilesFilter = new FilenameFilter {
     override def accept(dir: File, name: String): Boolean = name.endsWith(".json")
@@ -38,5 +38,3 @@ abstract class GeneratorCommand(codegens: List[CodeGen]) {
   }
 
 }
-
-object ScalaCodeGenerator extends GeneratorCommand(List(new ScalaCodeGen {}))

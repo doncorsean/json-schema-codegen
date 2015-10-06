@@ -9,27 +9,20 @@ object TypeScriptModelGenerator {
 
   private val preDefScope = ""
 
-  val format2ts: Map[(PredefType, String), PredefType] = Map(
-    (PredefType(preDefScope, "String"), "uri") -> PredefType(preDefScope, "string"),
-    (PredefType(preDefScope, "String"), "date-time") -> PredefType(preDefScope, "Date"),
-    (PredefType(preDefScope, "String"), "ipv6") -> PredefType("java.net", "string"),
-    (PredefType(preDefScope, "String"), "ipv4") -> PredefType("java.net", "string"),
-    (PredefType(preDefScope, "String"), "email") -> PredefType(preDefScope, "string"),
-    (PredefType(preDefScope, "String"), "hostname") -> PredefType(preDefScope, "string")
-  )
+  // JS parser of JSON doesn't parse custom complex objects, so format to type conversion is not supported.
+  val format2ts: Map[(PredefType, String), PredefType] = Map()
 
   val json2ts: Map[SimpleType.SimpleType, PredefType] = Map(
     SimpleType.string -> PredefType(preDefScope, "string"),
     SimpleType.integer -> PredefType(preDefScope, "number"),
     SimpleType.boolean -> PredefType(preDefScope, "boolean"),
-    // same as schema's document type param
     SimpleType.number -> PredefType(preDefScope, "number"),
     SimpleType.`null` -> PredefType(preDefScope, "any")
   )
 
   def apply[N: Numeric](schema: SchemaDocument[N]): scalaz.Validation[String, Set[LangType]] = {
 
-    val generator: ModelGenerator[N] = new ModelGenerator[N](json2ts, format2ts)
+    val generator: ModelGenerator[N] = new ModelGenerator[N](json2ts, format2ts) with TypeScriptNaming
 
     val typeName = generator.className(schema.scope).some
 

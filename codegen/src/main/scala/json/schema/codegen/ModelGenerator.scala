@@ -2,9 +2,10 @@ package json.schema.codegen
 
 import argonaut.Json
 import json.schema.parser.{SchemaDocument, SimpleType}
+
 import scalaz.Scalaz._
 
-class ModelGenerator[N: Numeric](json2predef: Map[SimpleType.SimpleType, PredefType], format2predef: Map[(PredefType, String), PredefType]) extends Naming {
+abstract class ModelGenerator[N: Numeric](json2predef: Map[SimpleType.SimpleType, PredefType], format2predef: Map[(PredefType, String), PredefType]) extends Naming {
 
   type Schema = SchemaDocument[N]
 
@@ -101,6 +102,5 @@ class ModelGenerator[N: Numeric](json2predef: Map[SimpleType.SimpleType, PredefT
     else
       enum(schema, name) orElse array(schema, name) orElse `object`(schema, name) orElse simple(schema)
   }
-
 
 }

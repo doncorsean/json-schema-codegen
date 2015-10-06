@@ -1,10 +1,13 @@
 package json.schema
 
-import java.nio.file.Path
+import java.io.File
+import java.nio.charset.StandardCharsets
+import java.nio.file.{StandardOpenOption, Files, Path}
 
 import json.schema.parser.{JsonSchemaParser, SchemaDocument}
 import json.source.JsonSource
 
+import scala.util.Try
 import scalaz.Leibniz
 import scalaz.Leibniz._
 import scalaz.Scalaz._
@@ -48,8 +51,81 @@ package object codegen {
     def parseAll(sources: Seq[T]): SValidation[List[SchemaDocument[N]]] = sources.map(source => jsonParser.parse(source).validation).toList.sequenceU
   }
 
+  trait Logging {
 
-  trait CodeGen {
+    def info(s: => String)
+
+    def debug(s: => String)
+
+    def error(s: => String)
+
+    protected implicit class Printable[T](v: T) {
+      def withInfo(prefix: String = ""): T = {
+        info(s"$prefix : $v")
+        v
+      }
+
+      def withError(prefix: String = ""): T = {
+        error(s"$prefix : $v")
+        v
+      }
+
+      def withDebug(prefix: String = ""): T = {
+        debug(s"$prefix : $v")
+        v
+      }
+    }
+
+  }
+
+  trait ConsoleLogging extends Logging {
+
+    override def info(s: => String) = System.out.println(s)
+
+    override def debug(s: => String) = System.out.println(s)
+
+    override def error(s: => String) = System.err.println(s)
+
+  }
+
+  trait CodeGenerator extends Naming with Logging {
+
+    def generateFile(codePackage: String, fileName: String, outputDir: Path)(content: Option[String] => SValidation[String]): SValidation[List[Path]] = {
+
+      Try {
+        content(codePackage.some.noneIfEmpty) map {
+          fileContent =>
+
+            if (fileContent.trim.isEmpty)
+              Nil
+            else {
+
+              val packageDir = codePackage.replaceAll("\\.", File.separator)
+
+              // create package structure
+              val fileDir: Path = outputDir.resolve(packageDir)
+
+              if (!fileDir.toFile.exists())
+                Files.createDirectories(fileDir)
+
+              val generateAbsoluteFile: Path = fileDir.resolve(fileName)
+              Files.deleteIfExists(generateAbsoluteFile)
+              List(
+                Files.write(generateAbsoluteFile, fileContent.getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE_NEW)
+              )
+
+            }
+        }
+      }.recover {
+        case e: Throwable => e.toString.failure
+      }.get
+
+    }
+
+
+    implicit val ev: ===[SValidation[List[Path]], SValidation[List[Path]]] = Leibniz.refl
+    implicit val evset: ===[SValidation[Set[LangType]], SValidation[Set[LangType]]] = Leibniz.refl
+
     def apply[N: Numeric](schemas: List[SchemaDocument[N]])(codeGenTarget: Path): SValidation[List[Path]]
   }
 

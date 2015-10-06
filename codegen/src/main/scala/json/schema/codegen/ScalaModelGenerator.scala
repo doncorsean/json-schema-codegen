@@ -31,7 +31,7 @@ object ScalaModelGenerator {
       SimpleType.`null` -> PredefType(preDefScope, "Any")
     )
 
-    val generator: ModelGenerator[N] = new ModelGenerator[N](json2scala, format2scala)
+    val generator: ModelGenerator[N] = new ModelGenerator[N](json2scala, format2scala) with ScalaNaming
 
     val typeName = generator.className(schema.scope).some
 
