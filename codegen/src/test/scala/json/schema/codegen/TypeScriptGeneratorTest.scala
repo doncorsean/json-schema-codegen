@@ -26,8 +26,8 @@ class TypeScriptGeneratorTest extends FlatSpec with Matchers with TypeScriptGene
            |"required":["a"]
            |}
          """.stripMargin) shouldBe Success( """interface Product {
-                                              |a:string;
-                                              |b?:number;
+                                              |a: string;
+                                              |b?: number;
                                               |}""".stripMargin.trim)
   }
 
@@ -43,8 +43,8 @@ class TypeScriptGeneratorTest extends FlatSpec with Matchers with TypeScriptGene
            |"required":["a"]
            |}
          """.stripMargin) shouldBe Success( """interface Product {
-                                              |a:string[];
-                                              |b?:number[];
+                                              |a: string[];
+                                              |b?: number[];
                                               |}""".stripMargin.trim)
   }
 
@@ -68,8 +68,8 @@ class TypeScriptGeneratorTest extends FlatSpec with Matchers with TypeScriptGene
            |}
          """.stripMargin) shouldBe Success( """
                                               |interface Product {
-                                              |a:product.definitions.Nested[];
-                                              |b?:number[];
+                                              |a: product.definitions.Nested[];
+                                              |b?: number[];
                                               |}
                                               |interface Nested {
                                               |
