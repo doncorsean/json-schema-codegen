@@ -4,9 +4,6 @@ import java.nio.file.Path
 
 import json.schema.parser.SchemaDocument
 
-import scalaz.Leibniz
-import scalaz.Leibniz.===
-import scalaz.std.AllInstances._
 import scalaz.syntax.all._
 import scalaz.syntax.std.all._
 
@@ -16,7 +13,7 @@ trait ScalaGenerator extends CodeGenerator with ScalaNaming {
 
   val addPropName = "_additional"
 
-  def generateCodec(outputDir: Path): SValidation[List[Path]] = {
+  def generateCodecFiles(outputDir: Path): SValidation[List[Path]] = {
     val codecClassName: String = "Codecs"
     val fileName: String = codecClassName.toLowerCase + ".scala"
     generateFile(predefinedPackageCodec, fileName, outputDir) {
@@ -51,7 +48,7 @@ trait ScalaGenerator extends CodeGenerator with ScalaNaming {
   }
 
 
-  def generateCodec(ts: Set[LangType], scope: String, outputDir: Path): SValidation[List[Path]] = {
+  def generateCodecFiles(ts: Set[LangType], scope: String, outputDir: Path): SValidation[List[Path]] = {
     val codecClassName: String = "Codecs"
     val fileName: String = codecClassName + ".scala"
 
@@ -92,7 +89,7 @@ trait ScalaGenerator extends CodeGenerator with ScalaNaming {
 
   }
 
-  def generateModel(ts: Set[LangType], scope: String, outputDir: Path): SValidation[List[Path]] = {
+  def generateModelFiles(ts: Set[LangType], scope: String, outputDir: Path): SValidation[List[Path]] = {
     val fileName: String = "model.scala"
     generateFile(scope, fileName, outputDir) {
       packageName =>
@@ -268,32 +265,7 @@ trait ScalaGenerator extends CodeGenerator with ScalaNaming {
 
   }
 
-  private def packageModels(models: Set[LangType]): Map[String, Set[LangType]] = models.groupBy(_.scope)
-
-  def apply[N: Numeric](schemas: List[SchemaDocument[N]])(codeGenTarget: Path): SValidation[List[Path]] = {
-
-    implicit val evdoc: ===[SValidation[SchemaDocument[N]], SValidation[SchemaDocument[N]]] = Leibniz.refl
-
-    for {
-      models: List[Set[LangType]] <- schemas.map(schema => ScalaModelGenerator(schema).withDebug("generated object model")).sequence
-      modelsByPackage: Map[String, Set[LangType]] = packageModels(models.flatMap(_.toList).toSet)
-      modelFiles <- modelsByPackage.map {
-        case (packageName, packageModels) =>
-          generateModel(packageModels, packageName, codeGenTarget).withDebug("model files")
-      }.toList.sequence
-      codecFiles <- modelsByPackage.map {
-        case (packageName, packageModels) =>
-          generateCodec(packageModels, packageName, codeGenTarget).withDebug("serializatoin files")
-      }.toList.sequence
-      predefinedCodecs: List[Path] <- generateCodec(codeGenTarget).withDebug("serialization files")
-    } yield {
-      val paths: List[Path] = predefinedCodecs ++ modelFiles.flatten ++ codecFiles.flatten
-      info(s"generated ${paths.size} in ${codeGenTarget}")
-      paths.withDebug("generated files")
-    }
-
-  }
-
+  def languageModel[N: Numeric](schema: SchemaDocument[N]): SValidation[Set[LangType]] = ScalaModelGenerator(schema)
 
 }
 

@@ -5,16 +5,14 @@ import java.nio.file.Path
 
 import json.schema.parser.SchemaDocument
 
-import scalaz.Leibniz
-import scalaz.Leibniz.===
-import scalaz.std.AllInstances._
+import scalaz.Success
 import scalaz.syntax.all._
 
 trait TypeScriptGenerator extends CodeGenerator with TypeScriptNaming {
 
   val fileName: String = "model.ts"
 
-  def generateModel(ts: Set[LangType], scope: String, outputDir: Path): SValidation[List[Path]] = {
+  def generateModelFiles(ts: Set[LangType], scope: String, outputDir: Path): SValidation[List[Path]] = {
     generateFile(scope, fileName, outputDir) {
       packageName =>
 
@@ -65,7 +63,7 @@ trait TypeScriptGenerator extends CodeGenerator with TypeScriptNaming {
         p =>
           val propType = genPropertyType(p)
           val member = memberName(p.name)
-          if (p.required) s"$member:$propType;" else s"$member?:$propType;"
+          if (p.required) s"$member: $propType;" else s"$member?: $propType;"
       }
       val extra =
         t.additionalNested.map {
@@ -92,29 +90,12 @@ trait TypeScriptGenerator extends CodeGenerator with TypeScriptNaming {
 
   }
 
+  // typescript code needs only types to be able to access the JS object models. it is up to the user to deserialize the JSON to JS objects.
+  def generateCodecFiles(ts: Set[LangType], scope: String, outputDir: Path): SValidation[List[Path]] = Success(Nil)
 
-  private def packageModels(models: Set[LangType]): Map[String, Set[LangType]] = models.groupBy(_.scope)
+  def generateCodecFiles(outputDir: Path): SValidation[List[Path]] = Success(Nil)
 
-
-  def apply[N: Numeric](schemas: List[SchemaDocument[N]])(codeGenTarget: Path): SValidation[List[Path]] = {
-
-    implicit val evdoc: ===[SValidation[SchemaDocument[N]], SValidation[SchemaDocument[N]]] = Leibniz.refl
-
-    for {
-      models: List[Set[LangType]] <- schemas.map(schema => TypeScriptModelGenerator(schema).withDebug("generated object model")).sequence
-      modelsByPackage: Map[String, Set[LangType]] = packageModels(models.flatMap(_.toList).toSet)
-      modelFiles <- modelsByPackage.map {
-        case (packageName, packageModels) =>
-          generateModel(packageModels, packageName, codeGenTarget).withDebug("model files")
-      }.toList.sequence
-    } yield {
-      val paths: List[Path] = modelFiles.flatten
-      info(s"generated ${paths.size} in ${codeGenTarget}")
-      paths.withDebug("generated files")
-    }
-
-  }
-
+  def languageModel[N: Numeric](schema: SchemaDocument[N]): SValidation[Set[LangType]] = TypeScriptModelGenerator(schema)
 
 }
 

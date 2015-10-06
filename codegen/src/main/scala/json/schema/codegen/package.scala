@@ -90,7 +90,7 @@ package object codegen {
 
   trait CodeGenerator extends Naming with Logging {
 
-    def generateFile(codePackage: String, fileName: String, outputDir: Path)(content: Option[String] => SValidation[String]): SValidation[List[Path]] = {
+    protected def generateFile(codePackage: String, fileName: String, outputDir: Path)(content: Option[String] => SValidation[String]): SValidation[List[Path]] = {
 
       Try {
         content(codePackage.some.noneIfEmpty) map {
@@ -123,10 +123,62 @@ package object codegen {
     }
 
 
-    implicit val ev: ===[SValidation[List[Path]], SValidation[List[Path]]] = Leibniz.refl
+    private def packageModels(models: Set[LangType]): Map[String, Set[LangType]] = models.groupBy(_.scope)
+
+    protected implicit val ev: ===[SValidation[List[Path]], SValidation[List[Path]]] = Leibniz.refl
     implicit val evset: ===[SValidation[Set[LangType]], SValidation[Set[LangType]]] = Leibniz.refl
 
-    def apply[N: Numeric](schemas: List[SchemaDocument[N]])(codeGenTarget: Path): SValidation[List[Path]]
+    def apply[N: Numeric](schemas: List[SchemaDocument[N]])(codeGenTarget: Path): SValidation[List[Path]] = {
+
+      implicit val evdoc: ===[SValidation[SchemaDocument[N]], SValidation[SchemaDocument[N]]] = Leibniz.refl
+
+      for {
+        models: List[Set[LangType]] <- schemas.map(schema => languageModel(schema).withDebug("generated object model")).sequence
+        modelsByPackage: Map[String, Set[LangType]] = packageModels(models.flatMap(_.toList).toSet)
+        modelFiles <- modelsByPackage.map {
+          case (packageName, packageModels) =>
+            generateModelFiles(packageModels, packageName, codeGenTarget).withDebug("model files")
+        }.toList.sequence
+        codecFiles <- modelsByPackage.map {
+          case (packageName, packageModels) =>
+            generateCodecFiles(packageModels, packageName, codeGenTarget).withDebug("serializatoin files")
+        }.toList.sequence
+        predefinedCodecs: List[Path] <- generateCodecFiles(codeGenTarget).withDebug("serialization files")
+      } yield {
+        val paths: List[Path] = predefinedCodecs ++ modelFiles.flatten ++ codecFiles.flatten
+        info(s"generated ${paths.size} in $codeGenTarget")
+        paths.withDebug("generated files")
+      }
+
+    }
+
+    def languageModel[N: Numeric](schema: SchemaDocument[N]): SValidation[Set[LangType]]
+
+    /**
+     * generate model files.
+     * @param ts model graph.
+     * @param scope target scope where to generate model code.
+     * @param outputDir
+     * @return generated list of files.
+     */
+    def generateModelFiles(ts: Set[LangType], scope: String, outputDir: Path): SValidation[List[Path]]
+
+    /**
+     * generate codecs for predefined types.
+     * @param outputDir
+     * @return generated list of files.
+     */
+    def generateCodecFiles(outputDir: Path): SValidation[List[Path]]
+
+    /**
+     * generate codecs for the above models.
+     * @param ts model graph.
+     * @param scope target scope where to generate model code.
+     * @param outputDir
+     * @return generated list of files.
+     */
+    def generateCodecFiles(ts: Set[LangType], scope: String, outputDir: Path): SValidation[List[Path]]
+
   }
 
 }
