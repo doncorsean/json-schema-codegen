@@ -116,7 +116,7 @@ class TypeScriptGeneratorTest extends FlatSpec with Matchers with TypeScriptGene
         | """.stripMargin.trim)
   }
 
-  it should "generate enumeration with values " in {
+  it should "enumeration types are not supported" in {
     gen(
       """
         |{
@@ -124,15 +124,26 @@ class TypeScriptGeneratorTest extends FlatSpec with Matchers with TypeScriptGene
         |"type":"string",
         |"enum":["a 1","b"]
         |}
-      """.stripMargin) shouldBe Success( """enum Product {  }""".stripMargin.trim)
+      """.stripMargin) shouldBe Success("")
     gen(
       """
         |{
         | "id": "http://some/product",
-        |"type":"integer",
-        |"enum":[1,2]
+        |"type":"object",
+        |"properties": {
+        |"a":{
+        |"type":"string",
+        |"enum":["a 1","b"]
+        |},
+        |"b":{"type":"number",
+        |"enum":[1,2]}
         |}
-      """.stripMargin) shouldBe Success( """enum Product { v1 = 1, v2 = 2 }""")
+        |}
+      """.stripMargin) shouldBe Success(
+      """interface Product {
+        |a?: string;
+        |b?: number;
+        |}""".stripMargin.trim)
   }
 
 

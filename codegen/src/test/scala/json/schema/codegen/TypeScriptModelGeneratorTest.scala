@@ -241,31 +241,6 @@ class TypeScriptModelGeneratorTest extends FlatSpec with Matchers {
       )
     )
   }
-  it should "create enum type " in {
-    parse(
-      """
-        |{
-        |"type":"string",
-        |"enum": ["a","b"]
-        |}
-      """.stripMargin).map(_.asInstanceOf[EnumType].enums) shouldBe Success(
-      Set(
-        "a", "b"
-      )
-    )
-    parse(
-      """
-        |{
-        |"type":"number",
-        |"enum": [1,2]
-        |}
-      """.stripMargin).map(_.asInstanceOf[EnumType].enums) shouldBe Success(
-      Set(
-        1d, 2d
-      )
-    )
-  }
-
 
   it should "type with additionalProperties has a map" in {
     parse(

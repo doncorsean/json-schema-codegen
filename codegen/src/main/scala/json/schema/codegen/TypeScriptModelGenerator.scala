@@ -2,6 +2,7 @@ package json.schema.codegen
 
 import json.schema.parser.{SchemaDocument, SimpleType}
 
+import scalaz.Failure
 import scalaz.Scalaz._
 
 
@@ -22,7 +23,9 @@ object TypeScriptModelGenerator {
 
   def apply[N: Numeric](schema: SchemaDocument[N]): scalaz.Validation[String, Set[LangType]] = {
 
-    val generator: ModelGenerator[N] = new ModelGenerator[N](json2ts, format2ts) with TypeScriptNaming
+    val generator: ModelGenerator[N] = new ModelGenerator[N](json2ts, format2ts) with TypeScriptNaming {
+      override def enum(schema: Schema, name: Option[String]): SValidation[LangType] = Failure("enum not supported")
+    }
 
     val typeName = generator.className(schema.scope).some
 

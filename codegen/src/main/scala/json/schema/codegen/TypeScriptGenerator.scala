@@ -77,18 +77,6 @@ trait TypeScriptGenerator extends CodeGenerator with TypeScriptNaming {
       val members = "\n" + (properties ++ extra.toList).mkString("\n") + "\n"
       s"""interface ${t.identifier} {$members}""".stripMargin
 
-    case t: EnumType =>
-      val valueDeclarations = t.enums.map {
-        case v: Int =>
-          val valueId = s"v${v.toInt}"
-          s"$valueId = ${v.toInt}"
-        case v: Double =>
-          val valueId = s"v${v.toInt}"
-          s"$valueId = ${v.toInt}"
-        case _ => "" // other enums are not support
-      }.filter(_ != "").mkString(", ")
-      s"""enum ${t.identifier} { $valueDeclarations }""".stripMargin
-
     case _ => ""
 
   }
