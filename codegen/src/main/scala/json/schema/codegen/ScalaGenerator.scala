@@ -231,8 +231,10 @@ trait ScalaGenerator extends CodeGenerator with ScalaNaming {
       val properties = t.properties.map {
         p =>
           val propType = genPropertyType(p)
-          val member = memberName(p.name)
-          s"$member:$propType"
+          memberName(p.name).map {
+            member =>
+              s"$member:$propType"
+          }.getOrElse("")
       }
       val extra =
         t.additionalNested.map {
@@ -249,8 +251,10 @@ trait ScalaGenerator extends CodeGenerator with ScalaNaming {
     case t: EnumType =>
       val valueDeclarations = t.enums.map {
         case v: String =>
-          val valueId = memberName(v)
-          s"""val $valueId = Value("$v")"""
+          memberName(v).map {
+            valueId =>
+              s"""val $valueId = Value("$v")"""
+          }.getOrElse("")
         case v: Int =>
           val valueId = s"v${v.toInt}"
           s"val $valueId = Value(${v.toInt})"
@@ -263,6 +267,11 @@ trait ScalaGenerator extends CodeGenerator with ScalaNaming {
 
     case _ => ""
 
+  }
+
+  def memberName(s: String): Option[String] = {
+    val camel: String = underscoreToCamel(identifier(s))
+    Some(escapeReserved(camel))
   }
 
   def languageModel[N: Numeric](schema: SchemaDocument[N]): SValidation[Set[LangType]] = ScalaModelGenerator(schema)

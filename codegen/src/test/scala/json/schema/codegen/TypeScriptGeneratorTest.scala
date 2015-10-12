@@ -15,83 +15,124 @@ class TypeScriptGeneratorTest extends FlatSpec with Matchers with TypeScriptGene
   }
 
   "TypeScriptGenerator" should "generate type with optional properties" in {
-    gen( """
-           |{
-           | "id": "http://some/product",
-           |"type":"object",
-           |"properties": {
-           |"a":{"type":"string"},
-           |"b":{"type":"number"}
-           |},
-           |"required":["a"]
-           |}
-         """.stripMargin) shouldBe Success( """interface Product {
-                                              |a: string;
-                                              |b?: number;
-                                              |}""".stripMargin.trim)
+    gen(
+      """
+        |{
+        | "id": "http://some/product",
+        |"type":"object",
+        |"properties": {
+        |"a":{"type":"string"},
+        |"b":{"type":"number"}
+        |},
+        |"required":["a"]
+        |}
+      """.stripMargin) shouldBe Success(
+      """interface Product {
+        |a: string;
+        |b?: number;
+        |}""".stripMargin.trim)
+  }
+
+  it should "generate type with properties names as is" in {
+    gen(
+      """
+        |{
+        | "id": "http://some/product",
+        |"type":"object",
+        |"properties": {
+        |"a_b":{"type":"string"}
+        |},
+        |"required":["a_b"]
+        |}
+      """.stripMargin) shouldBe Success(
+      """interface Product {
+        |a_b: string;
+        |}""".stripMargin.trim)
+  }
+  it should "invalid and reserved properties are ignored" in {
+    gen(
+      """
+        |{
+        | "id": "http://some/product",
+        |"type":"object",
+        |"properties": {
+        |"c d":{"type":"number"},
+        |"if":{"type":"string"}
+        |}
+        |}
+      """.stripMargin) shouldBe Success(
+      """interface Product {
+        |
+        |}""".stripMargin.trim)
   }
 
   it should "generate type with array properties" in {
-    gen( """
-           |{
-           | "id": "http://some/product",
-           |"type":"object",
-           |"properties": {
-           |"a":{"type":"array", "items":{"type":"string"}},
-           |"b":{"type":"array", "items":{"type":"number"}}
-           |},
-           |"required":["a"]
-           |}
-         """.stripMargin) shouldBe Success( """interface Product {
-                                              |a: string[];
-                                              |b?: number[];
-                                              |}""".stripMargin.trim)
+    gen(
+      """
+        |{
+        | "id": "http://some/product",
+        |"type":"object",
+        |"properties": {
+        |"a":{"type":"array", "items":{"type":"string"}},
+        |"b":{"type":"array", "items":{"type":"number"}}
+        |},
+        |"required":["a"]
+        |}
+      """.stripMargin) shouldBe Success(
+      """interface Product {
+        |a: string[];
+        |b?: number[];
+        |}""".stripMargin.trim)
   }
 
   it should "generate type with nested types" in {
-    gen( """
-           |{
-           | "id": "http://some/product",
-           |"type":"object",
-           |"properties": {
-           |"a":{"type":"array", "items":{"$ref":"#/definitions/nested"}},
-           |"b":{"type":"array", "items":{"type":"number"}}
-           |},
-           |"required":["a"],
-           |"definitions": {
-           |"nested": {
-           |"id":"#/definitions/nested",
-           |"type":"object"
-           | }
-           |}
-           |
-           |}
-         """.stripMargin) shouldBe Success( """
-                                              |interface Product {
-                                              |a: product.definitions.Nested[];
-                                              |b?: number[];
-                                              |}
-                                              |interface Nested {
-                                              |
-                                              |}
-                                              | """.stripMargin.trim)
+    gen(
+      """
+        |{
+        | "id": "http://some/product",
+        |"type":"object",
+        |"properties": {
+        |"a":{"type":"array", "items":{"$ref":"#/definitions/nested"}},
+        |"b":{"type":"array", "items":{"type":"number"}}
+        |},
+        |"required":["a"],
+        |"definitions": {
+        |"nested": {
+        |"id":"#/definitions/nested",
+        |"type":"object"
+        | }
+        |}
+        |
+        |}
+      """.stripMargin) shouldBe Success(
+      """
+        |interface Product {
+        |a: product.definitions.Nested[];
+        |b?: number[];
+        |}
+        |interface Nested {
+        |
+        |}
+        | """.stripMargin.trim)
   }
 
   it should "generate enumeration with values " in {
-    gen( """
-           |{
-           | "id": "http://some/product",
-           |"type":"string",
-           |"enum":["a 1","b"]
-           |}
-         """.stripMargin) shouldBe Success( """enum Product {  }""".stripMargin.trim)
-    gen( """
-           |{
-           | "id": "http://some/product",
-           |"type":"integer",
-           |"enum":[1,2]
-           |}
-         """.stripMargin) shouldBe Success( """enum Product { v1 = 1, v2 = 2 }""")
+    gen(
+      """
+        |{
+        | "id": "http://some/product",
+        |"type":"string",
+        |"enum":["a 1","b"]
+        |}
+      """.stripMargin) shouldBe Success( """enum Product {  }""".stripMargin.trim)
+    gen(
+      """
+        |{
+        | "id": "http://some/product",
+        |"type":"integer",
+        |"enum":[1,2]
+        |}
+      """.stripMargin) shouldBe Success( """enum Product { v1 = 1, v2 = 2 }""")
   }
 
 

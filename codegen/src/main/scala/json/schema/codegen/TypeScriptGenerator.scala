@@ -59,12 +59,15 @@ trait TypeScriptGenerator extends CodeGenerator with TypeScriptNaming {
 
   def genTypeDeclaration(clazz: LangType): String = clazz match {
     case t: ClassType =>
-      val properties = t.properties.map {
+      val properties: List[String] = t.properties.map {
         p =>
           val propType = genPropertyType(p)
-          val member = memberName(p.name)
-          if (p.required) s"$member: $propType;" else s"$member?: $propType;"
-      }
+          memberName(p.name).map {
+            member =>
+              if (p.required) s"$member: $propType;" else s"$member?: $propType;"
+          }.getOrElse("")
+      }.filter(_.nonEmpty)
+
       val extra =
         t.additionalNested.map {
           tn =>
@@ -89,6 +92,8 @@ trait TypeScriptGenerator extends CodeGenerator with TypeScriptNaming {
     case _ => ""
 
   }
+
+  def memberName(s: String): Option[String] = if (isIdentifier(s)) escapePropertyReserved(s) else None
 
   // typescript code needs only types to be able to access the JS object models. it is up to the user to deserialize the JSON to JS objects.
   def generateCodecFiles(ts: Set[LangType], scope: String, outputDir: Path): SValidation[List[Path]] = Success(Nil)

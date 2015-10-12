@@ -96,6 +96,23 @@ class TypeScriptModelGeneratorTest extends FlatSpec with Matchers {
     )
   }
 
+  it should "properties are not converted to camel case" in {
+    parse(
+      """
+        |{
+        | "id": "http://some/product",
+        |"type":"object",
+        |"properties": {
+        |"a_b_c":{"type":"string"}
+        |}
+        |}
+      """.stripMargin).map(_.asInstanceOf[ClassType].properties) shouldBe Success(
+      List(
+        LangTypeProperty("a_b_c", required = false, PredefType("", "string"))
+      )
+    )
+  }
+
   it should "create type using definitions" in {
     parse(
       """

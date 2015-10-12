@@ -31,9 +31,7 @@ trait Naming {
     schema.id.toSuccess("Schema has no Id").map(className) orElse defaultName.toSuccess("Default name not given").map(
       name => escapeReserved(underscoreToCamel(identifier(name))).capitalize)
 
-  def memberName(s: String) = escapeReserved(underscoreToCamel(identifier(s)))
-
-  protected def identifier(scope: URI): scalaz.Validation[String, String] = {
+  def identifier(scope: URI): scalaz.Validation[String, String] = {
     val str = scope.toString
     val lastSlash: Int = str.lastIndexOf('/')
     val lastSegment = (lastSlash >= 0) ? str.substring(lastSlash) | str
@@ -41,9 +39,13 @@ trait Naming {
     identifier(noExtSegment.filter(c => c != '#')).some.noneIfEmpty.toSuccess(s"Unable to extract identifier from $scope")
   }
 
-  protected def identifier(s: String): String = s.map(c => c.isLetterOrDigit ? c | '_')
+  def isIdentifier(c: Char): Boolean = c.isLetterOrDigit || c == '_'
 
-  private def underscoreToCamel(name: String): String = "_([a-z\\d])".r.replaceAllIn(name, _.group(1).toUpperCase)
+  def isIdentifier(s: String): Boolean = !s.exists(!isIdentifier(_))
+
+  def identifier(s: String): String = s.map(c => isIdentifier(c) ? c | '_')
+
+  def underscoreToCamel(name: String): String = "_([a-z\\d])".r.replaceAllIn(name, _.group(1).toUpperCase)
 
   private def removeExtension(s: String) = {
     val extIndex = s.lastIndexOf('.')
@@ -69,7 +71,9 @@ trait Naming {
   }
 
 
-  def escapeReserved(s: String) = reservedKeywords.contains(s) ? ('_' + s) | s
+  def escapePropertyReserved(s: String): Option[String] = if (reservedKeywords.contains(s)) none else s.some
+
+  def escapeReserved(s: String): String = escapePropertyReserved(s).getOrElse('_' + s)
 
   val reservedKeywords: Set[String]
 

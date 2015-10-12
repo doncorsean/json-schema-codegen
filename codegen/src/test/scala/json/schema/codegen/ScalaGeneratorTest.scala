@@ -123,6 +123,15 @@ class ScalaGeneratorTest extends FlatSpec with Matchers with ScalaGenerator with
            |"required":["type"]
            |}
          """.stripMargin) shouldBe Success( """case class Product(_type:String, b:Option[Double])""".stripMargin.trim)
+    gen( """
+           |{
+           | "id": "http://some/product",
+           |"type":"object",
+           |"properties": {
+           |"big number":{"type":"number"}
+           |}
+           |}
+         """.stripMargin) shouldBe Success( """case class Product(bigNumber:Option[Double])""".stripMargin.trim)
   }
 
   it should "generate type with escaped name" in {
