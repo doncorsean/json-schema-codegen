@@ -8,13 +8,13 @@ import json.schema.parser.{JsonSchemaParser, SchemaDocument}
 import json.source.JsonSource
 
 import scala.util.Try
-import scalaz.Leibniz
+import scalaz.{\/, Leibniz}
 import scalaz.Leibniz._
 import scalaz.Scalaz._
 
 package object codegen {
 
-  type SValidation[T] = scalaz.Validation[String, T]
+  type SValidation[T] = String \/ T
 
   sealed trait LangType {
     // types referenced by this type
@@ -48,7 +48,7 @@ package object codegen {
   implicit class ParserWrapper[N: Numeric, T: JsonSource](jsonParser: JsonSchemaParser[N]) {
     implicit val evdoc: ===[SValidation[SchemaDocument[N]], SValidation[SchemaDocument[N]]] = Leibniz.refl
 
-    def parseAll(sources: Seq[T]): SValidation[List[SchemaDocument[N]]] = sources.map(source => jsonParser.parse(source).validation).toList.sequenceU
+    def parseAll(sources: Seq[T]): SValidation[List[SchemaDocument[N]]] = sources.map(source => jsonParser.parse(source)).toList.sequenceU
   }
 
   trait Logging {
@@ -117,7 +117,7 @@ package object codegen {
             }
         }
       }.recover {
-        case e: Throwable => e.toString.failure
+        case e: Throwable => e.toString.left
       }.get
 
     }

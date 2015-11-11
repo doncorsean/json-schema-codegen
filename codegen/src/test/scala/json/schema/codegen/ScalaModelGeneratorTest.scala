@@ -3,32 +3,32 @@ package json.schema.codegen
 import json.schema.parser.JsonSchemaParser
 import org.scalatest.{FlatSpec, Matchers}
 
-import scalaz.Success
+import scalaz.{\/-, Success}
 
 class ScalaModelGeneratorTest extends FlatSpec with Matchers {
 
 
-  def parse(s: String): SValidation[LangType] = JsonSchemaParser.parse(s).validation.flatMap(ScalaModelGenerator(_)).map(_.head)
+  def parse(s: String): SValidation[LangType] = JsonSchemaParser.parse(s).flatMap(ScalaModelGenerator(_)).map(_.head)
 
-  def parseAll(s: String): SValidation[Set[LangType]] = JsonSchemaParser.parse(s).validation.flatMap(ScalaModelGenerator(_))
+  def parseAll(s: String): SValidation[Set[LangType]] = JsonSchemaParser.parse(s).flatMap(ScalaModelGenerator(_))
 
   ScalaModelGenerator.getClass.getName should "convert simple types to Scala types" in {
     parse(
       """
         |{"type":"integer"}
-      """.stripMargin).map(_.identifier) shouldBe Success("Long")
+      """.stripMargin).map(_.identifier) shouldBe \/-("Long")
     parse(
       """
         |{"type":"boolean"}
-      """.stripMargin).map(_.identifier) shouldBe Success("Boolean")
+      """.stripMargin).map(_.identifier) shouldBe \/-("Boolean")
     parse(
       """
         |{"type":"number"}
-      """.stripMargin).map(_.identifier) shouldBe Success("Double")
+      """.stripMargin).map(_.identifier) shouldBe \/-("Double")
     parse(
       """
         |{"type":"string"}
-      """.stripMargin).map(_.identifier) shouldBe Success("String")
+      """.stripMargin).map(_.identifier) shouldBe \/-("String")
   }
 
   it should "convert simple types with format to Scala types" in {
@@ -37,7 +37,7 @@ class ScalaModelGeneratorTest extends FlatSpec with Matchers {
         |{"type":"string",
         |"format":"uri"
         |}
-      """.stripMargin).map(_.identifier) shouldBe Success("URI")
+      """.stripMargin).map(_.identifier) shouldBe \/-("URI")
   }
 
   it should "convert array of unique items to Scala Set" in {
@@ -46,7 +46,7 @@ class ScalaModelGeneratorTest extends FlatSpec with Matchers {
         |{"type":"array",
         |"items":{"type":"string"}, "uniqueItems":true
         |}
-      """.stripMargin) shouldBe Success(ArrayType("", unique = true, PredefType("", "String")))
+      """.stripMargin) shouldBe \/-(ArrayType("", unique = true, PredefType("", "String")))
   }
 
   it should "convert array of items to Scala List" in {
@@ -55,7 +55,7 @@ class ScalaModelGeneratorTest extends FlatSpec with Matchers {
         |{"type":"array",
         |"items":{"type":"string"}
         |}
-      """.stripMargin) shouldBe Success(ArrayType("", unique = false, PredefType("", "String")))
+      """.stripMargin) shouldBe \/-(ArrayType("", unique = false, PredefType("", "String")))
   }
 
   it should "use id in camel case for class name" in {
@@ -65,7 +65,7 @@ class ScalaModelGeneratorTest extends FlatSpec with Matchers {
         | "id": "http://some/product",
         |"type":"object"
         |}
-      """.stripMargin) shouldBe Success(ClassType("", "Product", Nil, None))
+      """.stripMargin) shouldBe \/-(ClassType("", "Product", Nil, None))
 
     parse(
       """
@@ -73,7 +73,7 @@ class ScalaModelGeneratorTest extends FlatSpec with Matchers {
         | "id": "http://some/path#/product",
         |"type":"object"
         |}
-      """.stripMargin) shouldBe Success(ClassType("path", "Product", Nil, None))
+      """.stripMargin) shouldBe \/-(ClassType("path", "Product", Nil, None))
   }
 
   it should "create type with members from properties" in {
@@ -88,7 +88,7 @@ class ScalaModelGeneratorTest extends FlatSpec with Matchers {
         |},
         |"required":["a"]
         |}
-      """.stripMargin).map(_.asInstanceOf[ClassType].properties) shouldBe Success(
+      """.stripMargin).map(_.asInstanceOf[ClassType].properties) shouldBe \/-(
       List(
         LangTypeProperty("a", required = true, PredefType("", "String")),
         LangTypeProperty("b", required = false, PredefType("", "Double"))
@@ -110,7 +110,7 @@ class ScalaModelGeneratorTest extends FlatSpec with Matchers {
         |},
         |"required":["a"]
         |}
-      """.stripMargin).map(_.asInstanceOf[ClassType].properties) shouldBe Success(
+      """.stripMargin).map(_.asInstanceOf[ClassType].properties) shouldBe \/-(
       List(
         LangTypeProperty("a", required = true, PredefType("", "String"))
       )
@@ -137,7 +137,7 @@ class ScalaModelGeneratorTest extends FlatSpec with Matchers {
         |},
         |"required":["a"]
         |}
-      """.stripMargin).map(_.asInstanceOf[ClassType].properties) shouldBe Success(
+      """.stripMargin).map(_.asInstanceOf[ClassType].properties) shouldBe \/-(
       List(
         LangTypeProperty("a", required = true, ClassType("product.definitions", "Typea", List(LangTypeProperty("b", required = false, PredefType("", "String"))), None))
       )
@@ -163,7 +163,7 @@ class ScalaModelGeneratorTest extends FlatSpec with Matchers {
         |},
         |"required":["a"]
         |}
-      """.stripMargin).map(_.asInstanceOf[ClassType].properties) shouldBe Success(
+      """.stripMargin).map(_.asInstanceOf[ClassType].properties) shouldBe \/-(
       List(
         LangTypeProperty("a", required = true, ClassType("product.definitions", "Typea", List(LangTypeProperty("nested", required = false, PredefType("", "String"))), None))
       )
@@ -190,7 +190,7 @@ class ScalaModelGeneratorTest extends FlatSpec with Matchers {
         |},
         |"required":["a","b"]
         |}
-      """.stripMargin).map(_.asInstanceOf[ClassType].properties) shouldBe Success(
+      """.stripMargin).map(_.asInstanceOf[ClassType].properties) shouldBe \/-(
       List(
         LangTypeProperty("a", required = true, ClassType("product.definitions", "Typea", List(LangTypeProperty("nested", required = false, PredefType("", "String"))), None)),
         LangTypeProperty("b", required = true, ClassType("product.definitions", "Typea", List(LangTypeProperty("nested", required = false, PredefType("", "String"))), None))
@@ -217,7 +217,7 @@ class ScalaModelGeneratorTest extends FlatSpec with Matchers {
         |},
         |"required":["a","b"]
         |}
-      """.stripMargin).map(_.asInstanceOf[ClassType].properties) shouldBe Success(
+      """.stripMargin).map(_.asInstanceOf[ClassType].properties) shouldBe \/-(
       List(
         LangTypeProperty("a", required = true, ClassType("product.definitions", "Typea", List(LangTypeProperty("b", required = false, PredefType("", "String"))), None)),
         LangTypeProperty("b", required = true, ClassType("product.definitions", "Typea", List(LangTypeProperty("b", required = false, PredefType("", "String"))), None))
@@ -231,7 +231,7 @@ class ScalaModelGeneratorTest extends FlatSpec with Matchers {
         |"type":"string",
         |"enum": ["a","b"]
         |}
-      """.stripMargin).map(_.asInstanceOf[EnumType].enums) shouldBe Success(
+      """.stripMargin).map(_.asInstanceOf[EnumType].enums) shouldBe \/-(
       Set(
         "a", "b"
       )
@@ -242,7 +242,7 @@ class ScalaModelGeneratorTest extends FlatSpec with Matchers {
         |"type":"number",
         |"enum": [1,2]
         |}
-      """.stripMargin).map(_.asInstanceOf[EnumType].enums) shouldBe Success(
+      """.stripMargin).map(_.asInstanceOf[EnumType].enums) shouldBe \/-(
       Set(
         1d, 2d
       )
@@ -267,7 +267,7 @@ class ScalaModelGeneratorTest extends FlatSpec with Matchers {
         | }
         |}
         |}
-      """.stripMargin).map(_.asInstanceOf[ClassType].additionalNested.map(_.identifier)) shouldBe Success(
+      """.stripMargin).map(_.asInstanceOf[ClassType].additionalNested.map(_.identifier)) shouldBe \/-(
       Some(
         "Typea"
       )
@@ -291,9 +291,9 @@ class ScalaModelGeneratorTest extends FlatSpec with Matchers {
         | }
         |}
       """.stripMargin)
-    models.map(_.size) shouldBe Success(2)
-    models.map(_.find(_.identifier == "Product").map(_.scope)) shouldBe Success(Some(""))
-    models.map(_.find(_.identifier == "Entity").map(_.scope)) shouldBe Success(Some("nested.schema"))
+    models.map(_.size) shouldBe \/-(2)
+    models.map(_.find(_.identifier == "Product").map(_.scope)) shouldBe \/-(Some(""))
+    models.map(_.find(_.identifier == "Entity").map(_.scope)) shouldBe \/-(Some("nested.schema"))
   }
 
 }

@@ -3,12 +3,12 @@ package json.schema.codegen
 import json.schema.parser.JsonSchemaParser
 import org.scalatest.{FlatSpec, Matchers}
 
-import scalaz.Success
+import scalaz.{\/-, Success}
 
 class TypeScriptGeneratorTest extends FlatSpec with Matchers with TypeScriptGenerator with ConsoleLogging {
 
 
-  def parse(s: String): SValidation[Set[LangType]] = JsonSchemaParser.parse(s).validation.flatMap(TypeScriptModelGenerator(_))
+  def parse(s: String): SValidation[Set[LangType]] = JsonSchemaParser.parse(s).flatMap(TypeScriptModelGenerator(_))
 
   def gen(s: String): SValidation[String] = parse(s) map {
     ts => ts.map(genTypeDeclaration).mkString("\n").trim
@@ -26,7 +26,7 @@ class TypeScriptGeneratorTest extends FlatSpec with Matchers with TypeScriptGene
         |},
         |"required":["a"]
         |}
-      """.stripMargin) shouldBe Success(
+      """.stripMargin) shouldBe \/-(
       """interface Product {
         |a: string;
         |b?: number;
@@ -44,7 +44,7 @@ class TypeScriptGeneratorTest extends FlatSpec with Matchers with TypeScriptGene
         |},
         |"required":["a_b"]
         |}
-      """.stripMargin) shouldBe Success(
+      """.stripMargin) shouldBe \/-(
       """interface Product {
         |a_b: string;
         |}""".stripMargin.trim)
@@ -60,7 +60,7 @@ class TypeScriptGeneratorTest extends FlatSpec with Matchers with TypeScriptGene
         |"if":{"type":"string"}
         |}
         |}
-      """.stripMargin) shouldBe Success(
+      """.stripMargin) shouldBe \/-(
       """interface Product {
         |
         |}""".stripMargin.trim)
@@ -78,7 +78,7 @@ class TypeScriptGeneratorTest extends FlatSpec with Matchers with TypeScriptGene
         |},
         |"required":["a"]
         |}
-      """.stripMargin) shouldBe Success(
+      """.stripMargin) shouldBe \/-(
       """interface Product {
         |a: string[];
         |b?: number[];
@@ -104,7 +104,7 @@ class TypeScriptGeneratorTest extends FlatSpec with Matchers with TypeScriptGene
         |}
         |
         |}
-      """.stripMargin) shouldBe Success(
+      """.stripMargin) shouldBe \/-(
       """
         |interface Product {
         |a: product.definitions.Nested[];
@@ -124,7 +124,7 @@ class TypeScriptGeneratorTest extends FlatSpec with Matchers with TypeScriptGene
         |"type":"string",
         |"enum":["a 1","b"]
         |}
-      """.stripMargin) shouldBe Success("")
+      """.stripMargin) shouldBe \/-("")
     gen(
       """
         |{
@@ -139,7 +139,7 @@ class TypeScriptGeneratorTest extends FlatSpec with Matchers with TypeScriptGene
         |"enum":[1,2]}
         |}
         |}
-      """.stripMargin) shouldBe Success(
+      """.stripMargin) shouldBe \/-(
       """interface Product {
         |a?: string;
         |b?: number;
@@ -163,7 +163,7 @@ class TypeScriptGeneratorTest extends FlatSpec with Matchers with TypeScriptGene
         |
         |}
       """.stripMargin) shouldBe
-      Success(
+      \/-(
         """
           |interface Product {
           |[key: string]: product.definitions.Nested;

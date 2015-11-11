@@ -8,6 +8,8 @@ import json.schema.parser.JsonSchemaParser
 import scalaz.std.AllInstances._
 import scalaz.syntax.all._
 import scalaz.syntax.std.all._
+import scala.collection.convert.WrapAsScala._
+
 
 abstract class GeneratorCommand(codegens: List[CodeGenerator]) {
 
@@ -20,10 +22,10 @@ abstract class GeneratorCommand(codegens: List[CodeGenerator]) {
     val oargs = args.lift
 
     val result = for {
-      source <- oargs(0).map(new File(_)).toSuccess("json-schema is required")
-      targetDir <- oargs(1).map(new File(_)).toSuccess("target folder is required")
+      source <- oargs(0).map(new File(_)).toRightDisjunction("json-schema is required")
+      targetDir <- oargs(1).map(new File(_)).toRightDisjunction("target folder is required")
       genRoot: Path = targetDir.toPath
-      sources: Seq[File] = if (source.isDirectory) source.listFiles(jsonFilesFilter)
+      sources = if (source.isDirectory) source.listFiles(jsonFilesFilter).toSeq
       else Seq(source)
 
       schemas <- JsonSchemaParser.parseAll(sources)

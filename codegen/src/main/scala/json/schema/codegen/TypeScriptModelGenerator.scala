@@ -21,10 +21,10 @@ object TypeScriptModelGenerator {
     SimpleType.`null` -> PredefType(preDefScope, "any")
   )
 
-  def apply[N: Numeric](schema: SchemaDocument[N]): scalaz.Validation[String, Set[LangType]] = {
+  def apply[N: Numeric](schema: SchemaDocument[N]): SValidation[Set[LangType]] = {
 
     val generator: ModelGenerator[N] = new ModelGenerator[N](json2ts, format2ts) with TypeScriptNaming {
-      override def enum(schema: Schema, name: Option[String]): SValidation[LangType] = Failure("enum not supported")
+      override def enum(schema: Schema, name: Option[String]): SValidation[LangType] = "enum not supported".left
     }
 
     val typeName = generator.className(schema.scope).some

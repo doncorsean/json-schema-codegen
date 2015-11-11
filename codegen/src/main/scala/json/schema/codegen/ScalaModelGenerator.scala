@@ -20,7 +20,7 @@ object ScalaModelGenerator {
     (PredefType(preDefScope, "String"), "hostname") -> PredefType(preDefScope, "String")
   )
 
-  def apply[N: Numeric](schema: SchemaDocument[N]): scalaz.Validation[String, Set[LangType]] = {
+  def apply[N: Numeric](schema: SchemaDocument[N]): SValidation[Set[LangType]] = {
 
     val json2scala: Map[SimpleType.SimpleType, PredefType] = Map(
       SimpleType.string -> PredefType(preDefScope, "String"),

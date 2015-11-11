@@ -21,12 +21,12 @@ trait TypeScriptGenerator extends CodeGenerator with TypeScriptNaming {
         val packageDecl = packageName.map(p => s"$referencesBlock\n\ndeclare module $p {\n\n").getOrElse("")
         val modelDecl = ts.map(genTypeDeclaration).filter(!_.trim.isEmpty)
         if (modelDecl.isEmpty)
-          "".success
+          "".right
         else
           modelDecl.mkString(
             packageDecl,
             "\n\n", "\n\n}"
-          ).success
+          ).right
     }
   }
 
@@ -84,9 +84,9 @@ trait TypeScriptGenerator extends CodeGenerator with TypeScriptNaming {
   def memberName(s: String): Option[String] = if (isIdentifier(s)) escapePropertyReserved(s) else None
 
   // typescript code needs only types to be able to access the JS object models. it is up to the user to deserialize the JSON to JS objects.
-  def generateCodecFiles(ts: Set[LangType], scope: String, outputDir: Path): SValidation[List[Path]] = Success(Nil)
+  def generateCodecFiles(ts: Set[LangType], scope: String, outputDir: Path): SValidation[List[Path]] = Nil.right
 
-  def generateCodecFiles(outputDir: Path): SValidation[List[Path]] = Success(Nil)
+  def generateCodecFiles(outputDir: Path): SValidation[List[Path]] = Nil.right
 
   def languageModel[N: Numeric](schema: SchemaDocument[N]): SValidation[Set[LangType]] = TypeScriptModelGenerator(schema)
 

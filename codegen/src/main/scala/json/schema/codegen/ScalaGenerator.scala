@@ -27,7 +27,7 @@ trait ScalaGenerator extends CodeGenerator with ScalaNaming {
         ).filter(!_.trim.isEmpty).mkString("\n")
 
         if (codecs.isEmpty)
-          "".success
+          "".right
         else {
           val packageDecl = packageName.map(p => s"package $p").getOrElse("")
           s"""
@@ -40,7 +40,7 @@ trait ScalaGenerator extends CodeGenerator with ScalaNaming {
           }
 
           object $codecClassName extends $codecClassName
-          """.stripMargin.success
+          """.stripMargin.right
         }
 
     }
@@ -60,7 +60,7 @@ trait ScalaGenerator extends CodeGenerator with ScalaNaming {
       packageName =>
 
         val referencedTypes = ts.flatMap(_.referenced).filter(t => !t.scope.isEmpty && t.scope != scope)
-        val referencedCodes = referencedTypes.isEmpty ? "" | referencedTypes.map(codecPackage).toSet.mkString(" extends ", " with ", "")
+        val referencedCodes = referencedTypes.isEmpty ? "" | referencedTypes.map(codecPackage).mkString(" extends ", " with ", "")
 
         val codecs = ts.map {
           case t: ClassType => genCodecClass(t)
@@ -69,7 +69,7 @@ trait ScalaGenerator extends CodeGenerator with ScalaNaming {
         }.filter(!_.trim.isEmpty).mkString("\n")
 
         if (codecs.isEmpty)
-          "".success
+          "".right
         else {
           val packageDecl = packageName.map(p => s"package $p").getOrElse("")
           s"""
@@ -82,7 +82,7 @@ trait ScalaGenerator extends CodeGenerator with ScalaNaming {
               }
 
               object $codecClassName extends $codecClassName
-          """.stripMargin.success
+          """.stripMargin.right
         }
 
     }
@@ -97,12 +97,12 @@ trait ScalaGenerator extends CodeGenerator with ScalaNaming {
         val packageDecl = packageName.map(p => s"package $p\n\n").getOrElse("")
         val modelDecl = ts.map(genTypeDeclaration).filter(!_.trim.isEmpty)
         if (modelDecl.isEmpty)
-          "".success
+          "".right
         else
           modelDecl.mkString(
             packageDecl,
             "\n\n", ""
-          ).success
+          ).right
 
     }
   }
@@ -256,7 +256,10 @@ trait ScalaGenerator extends CodeGenerator with ScalaNaming {
               s"""val $valueId = Value("$v")"""
           }.getOrElse("")
         case v: Int =>
-          val valueId = s"v${v.toInt}"
+          val valueId = s"v$v"
+          s"val $valueId = Value(${v.toInt})"
+        case v: Long =>
+          val valueId = s"v$v"
           s"val $valueId = Value(${v.toInt})"
         case v: Double =>
           val valueId = s"v${v.toInt}"
