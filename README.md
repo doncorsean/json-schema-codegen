@@ -41,7 +41,13 @@ By default the schema definitions should be placed in src/main/json-schema.
 In project/plugins.sbt add:
 
 ```scala
-  addSbtPlugin("com.voxsupplychain" %% "json-schema-codegen-sbt" % "0.1.0")
+
+resolvers ++= Seq(
+  Resolver.url("vox-public-ivy", url("http://dl.bintray.com/content/voxsupplychain/ivy-public"))(Resolver.ivyStylePatterns)
+)
+
+addSbtPlugin("com.voxsupplychain" %% "json-schema-codegen-sbt" % "0.3.0")
+
 ```
 
 In build.sbt :
