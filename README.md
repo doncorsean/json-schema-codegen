@@ -26,7 +26,7 @@ Not supported:
 
  * anyOf, not, allOf, oneOf
 
- * multiple types
+ * multiple types ( e.g. ```"type": ["object", "array"]``` )
 
  * enum of objects or variable types
 
