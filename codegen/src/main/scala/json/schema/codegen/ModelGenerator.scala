@@ -12,7 +12,7 @@ abstract class ModelGenerator[N: Numeric](json2predef: Map[SimpleType.SimpleType
   val definedSchemas = scala.collection.mutable.Map.empty[Schema, LangType]
 
   def `object`(schema: Schema, name: Option[String]): SValidation[LangType] = {
-
+    print(s"object name: $name\n")
     schema.obj.toRightDisjunction(s"not object type: ${schema.types}").flatMap {
       obj =>
         val schemaClassName: SValidation[String] = className(schema, name)
@@ -47,7 +47,8 @@ abstract class ModelGenerator[N: Numeric](json2predef: Map[SimpleType.SimpleType
   }
 
 
-  def array(schema: Schema, name: Option[String]): SValidation[LangType] =
+  def array(schema: Schema, name: Option[String]): SValidation[LangType] = {
+    print("array\n")
     schema.array.toRightDisjunction(s"not array type: ${schema.types}").flatMap {
       array =>
         val genClassName: Option[String] = name.map(_ + "0")
@@ -58,20 +59,21 @@ abstract class ModelGenerator[N: Numeric](json2predef: Map[SimpleType.SimpleType
 
         scalaz.Disjunction.fromEither(arrayDef.toEither.leftMap(e => s"Type of Array $genClassName not found: $e"))
     }
-
+  }
   def simple(schema: Schema): SValidation[LangType] = {
-    schema.types.headOption.flatMap(json2predef.get).toRightDisjunction("Type is not simple") map {
+    print("Simple\n")
+    schema.types.headOption.flatMap(json2predef.get).toRightDisjunction(s"Type[${schema.title.getOrElse("Error")}] is not simple") map {
       simpleType =>
         // if there is a format, try to find type that corresponds to the format
         val formatType = schema.format.flatMap(format => format2predef.get((simpleType, format.toLowerCase))).getOrElse(simpleType)
-
+//        print(s"formatType: $formatType")
         definedSchemas.put(schema, formatType)
         formatType
     }
   }
 
   def enum(schema: Schema, name: Option[String]): SValidation[LangType] = {
-
+  print("Enum\n")
     for {
       t <- schema.types.headOption.toRightDisjunction("Type is required")
       className <- className(schema, name)
@@ -96,10 +98,11 @@ abstract class ModelGenerator[N: Numeric](json2predef: Map[SimpleType.SimpleType
 
 
   def any(schema: Schema, name: Option[String]): SValidation[LangType] = {
+    print(s"schema: ${schema.id}\n")
+    print(s"schema.types.size: ${schema.types.size}\n")
     if (schema.types.size != 1)
       s"One type is required in: $schema".left
     else
       enum(schema, name) orElse array(schema, name) orElse `object`(schema, name) orElse simple(schema)
   }
-
 }

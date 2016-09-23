@@ -88,7 +88,7 @@ object Plugin extends sbt.AutoPlugin {
 
 
         genFiles.fold(
-          e => throw new IllegalArgumentException(s"Failed code generation in $jsonSchemas: $e "),
+          e => throw new IllegalArgumentException(s"Failed code generation in ${jsonSchemas.map(s=>s.toString.split("/").last).mkString(",")}\nException: $e "),
           p => p.map(_.toFile)
         ).toSet
 
