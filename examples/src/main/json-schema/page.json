@@ -1,0 +1,452 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "id": "http://review-ncl-oar.ci2.p2devcloud.com/schemata/node/page?_format=hal_json_schema",
+  "type": "object",
+  "title": "node:page Schema",
+  "description": "Use <em>basic pages</em> for your static content, such as an 'About us' page.",
+  "properties": {
+    "nid": {
+      "title": "ID",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "title": "Integer value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 1
+    },
+    "uuid": {
+      "title": "UUID",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "title": "Text value",
+            "type": "string",
+            "format": "uuid",
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "value"
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 1
+    },
+    "vid": {
+      "title": "Revision ID",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "title": "Integer value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 1
+    },
+    "langcode": {
+      "title": "Language",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "title": "Language code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      },
+      "maxItems": 1
+    },
+    "title": {
+      "title": "Title",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "title": "Text value",
+            "type": "string",
+            "maxLength": 255
+          }
+        },
+        "required": [
+          "value"
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 1
+    },
+    "_links": {
+      "title": "HAL Links",
+      "description": "Object of links with the rels as the keys",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "$ref": "#/definitions/linkArray",
+          "title": "Authored by",
+          "description": "The username of the content author."
+        },
+        "revision_uid": {
+          "$ref": "#/definitions/linkArray",
+          "title": "Revision user ID",
+          "description": "The user ID of the author of the current revision."
+        },
+        "self": {
+          "$ref": "#/definitions/linkObject"
+        },
+        "type": {
+          "$ref": "#/definitions/linkObject"
+        }
+      }
+    },
+    "_embedded": {
+      "title": "HAL Embedded Resource",
+      "description": "An embedded HAL resource",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "array",
+          "items": {
+            "$ref": "http://review-ncl-oar.ci2.p2devcloud.com/schemata/user?_format=oar_hal_json_schema_v0"
+          },
+          "title": "Authored by"
+        },
+        "revision_uid": {
+          "type": "array",
+          "items": {
+            "$ref": "http://review-ncl-oar.ci2.p2devcloud.com/schemata/user?_format=oar_hal_json_schema_v0"
+          },
+          "title": "Revision user ID"
+        }
+      }
+    },
+    "status": {
+      "title": "Publishing status",
+      "description": "A boolean indicating whether the node is published.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "title": "Boolean value",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      },
+      "default": [
+        {
+          "value": 0
+        }
+      ],
+      "maxItems": 1
+    },
+    "created": {
+      "title": "Authored on",
+      "description": "The time that the node was created.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "title": "Timestamp value",
+            "type": "number",
+            "format": "utc-millisec"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      },
+      "maxItems": 1
+    },
+    "changed": {
+      "title": "Changed",
+      "description": "The time that the node was last edited.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "title": "Timestamp value",
+            "type": "number",
+            "format": "utc-millisec"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      },
+      "maxItems": 1
+    },
+    "promote": {
+      "title": "Promoted to front page",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "title": "Boolean value",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      },
+      "default": [
+        {
+          "value": 0
+        }
+      ],
+      "maxItems": 1
+    },
+    "sticky": {
+      "title": "Sticky at top of lists",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "title": "Boolean value",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      },
+      "default": [
+        {
+          "value": false
+        }
+      ],
+      "maxItems": 1
+    },
+    "revision_timestamp": {
+      "title": "Revision timestamp",
+      "description": "The time that the current revision was created.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "title": "Timestamp value",
+            "type": "number",
+            "format": "utc-millisec"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      },
+      "maxItems": 1
+    },
+    "revision_log": {
+      "title": "Revision log message",
+      "description": "Briefly describe the changes you have made.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "title": "Text value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      },
+      "default": [
+        {
+          "value": ""
+        }
+      ],
+      "maxItems": 1
+    },
+    "revision_translation_affected": {
+      "title": "Revision translation affected",
+      "description": "Indicates if the last edit of a translation belongs to current revision.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "title": "Boolean value",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 1
+    },
+    "default_langcode": {
+      "title": "Default translation",
+      "description": "A flag indicating whether this is the default translation.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "title": "Boolean value",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      },
+      "default": [
+        {
+          "value": true
+        }
+      ],
+      "maxItems": 1
+    },
+    "path": {
+      "title": "URL alias",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "alias": {
+            "title": "Path alias",
+            "type": "string"
+          },
+          "pid": {
+            "title": "Path id",
+            "type": "string"
+          },
+          "pathauto": {
+            "title": "Pathauto state",
+            "description": "Whether an automated alias should be created or not.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pathauto"
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 1
+    },
+    "body": {
+      "title": "Body",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "title": "Text",
+            "type": "string"
+          },
+          "format": {
+            "title": "Text format",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      },
+      "maxItems": 1
+    },
+    "field_meta_tags": {
+      "title": "Meta Tags",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "title": "Metatag",
+            "type": "string"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      },
+      "default": [
+        {
+          "value": "a:1:{s:5:\"title\";s:34:\"[current-page:title] | [site:name]\";}"
+        }
+      ],
+      "maxItems": 1
+    }
+  },
+  "required": [
+    "nid",
+    "uuid",
+    "vid",
+    "title",
+    "revision_translation_affected",
+    "path"
+  ],
+  "definitions": {
+    "linkArray": {
+      "title": "HAL Link Array",
+      "description": "An array of linkObjects of the same link relation",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/linkObject"
+      }
+    },
+    "linkObject": {
+      "title": "HAL Link Object",
+      "description": "An object with link information.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "title": "Name",
+          "description": "Name of a resource, link, action, etc.",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "description": "A title for a resource, link, action, etc.",
+          "type": "string"
+        },
+        "href": {
+          "title": "HREF",
+          "description": "A hyperlink URL.",
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "href"
+      ]
+    }
+  }
+}
